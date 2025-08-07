@@ -16,6 +16,6 @@ def set_llm(source, model=None, api_key=None):
         case "openapi":
             print("OpenApi support will come later")
             return None
-        case default:
+        case _:
             print("This program only support llama models for now.")
             return None
