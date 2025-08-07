@@ -6,7 +6,7 @@ from interfaces.index_interface import load_or_create_index
 import chromadb
 
 # Set up LLM (ollama, llama2:7b)
-Settings.llm = set_llm(source="ollama", model="llama2:7b")
+Settings.llm = set_llm(source="ollama", model="llama2:13b")
 
 # Define our embedding model
 Settings.embed_model = OllamaEmbedding(model_name="nomic-embed-text:latest")
@@ -23,7 +23,11 @@ index = load_or_create_index(vector_store, storage_context, data_path="./data")
 query_engine = index.as_query_engine()
 
 # 6. We ask question
-resp = query_engine.query("What was her majesty please about?")
+# resp = query_engine.query("What was her majesty please about?")
+# resp = query_engine.query("What happended on the 6th of December 1841")
+# resp = query_engine.query("When was Jame McRisky born")
 
 # 7. We print answer
-print(resp)
+while True:
+    resp = query_engine.query(input("Question:"))
+    print(f"Answer:\n{resp}")
