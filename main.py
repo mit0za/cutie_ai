@@ -1,4 +1,4 @@
-from llm_loader import llm_model
+from utils.llm_loader import llm_model
 from llama_index.core import Settings, SimpleDirectoryReader
 from llama_index.core import VectorStoreIndex, Settings
 from llama_index.embeddings.ollama import OllamaEmbedding
