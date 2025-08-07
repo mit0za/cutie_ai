@@ -1,8 +1,9 @@
 from llama_index.llms.ollama import Ollama
 
-# 0. Define our model
-def llm_model():
-    llm = Ollama(
-        model="llama2:7b", # replace the model with whatever llama model u want
-    )
-    return llm
+"""
+This is where you load your ai model. U can either use api keys or
+your own locally hosted ai model.
+For this project we will be using llama ai from Meta
+"""
+def get_ollama_model(model):
+    return Ollama(model=model)
