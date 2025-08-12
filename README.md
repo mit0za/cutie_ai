@@ -1,16 +1,28 @@
-We will develop using `llama2:7b`. I recommend you get it from [ollama](https://ollama.com/library/llama2:7b).<br>
-We are also using [nomic-embed-text:latest](https://ollama.com/library/nomic-embed-text).<br>
 I highly set up a virtual python enviroment because we are in a development phrase which mean<br>
-we will build fast and break fast.
 # Dependencies
+
+**Python Libraries**
 ```
 pip install -r requirements.txt
 ```
 
+**[Llama3.1:8b](https://ollama.com/library/llama3.1:8b)**
+```
+ollama pull llama3.1:8b
+```
+
+**[Embed Model](https://ollama.com/mitoza/Qwen3-Embedding-0.6B)**
+```
+ollama run mitoza/Qwen3-Embedding-0.6B
+```
+
+**[Rerank model](https://ollama.com/linux6200/bge-reranker-v2-m3/tags)**
+```
+ollama pull linux6200/bge-reranker-v2-m3
+```
+
 # Note
-The ai model can extract text from word documents and store it in a vector database. I have tested it by putting "18410521 p3 Southern Australian 71614658 NZ separate colony from NSW.docx" from file name 1854 into data/ directory.<br>
-
-I asked **"What was her majesty please about?"**<br>
-
-Ai responsed **Her Majesty was pleased to erect the Islands of New Zealand into a distinct and separate colony."** Which is 100% correct based on the document I gave it.
-
+As of 11/08/25, Qwen3-Embedding-0.6B is the number 4 model on the Embedding Leaderboard. The top three models are: <br>
+1. gemini-embedding-001 <br>
+2. Qwen3-Embedding-8B <br>
+3. Qwen3-Embedding-4B" <br>
