@@ -6,13 +6,13 @@ from interfaces.index_interface import load_or_create_index
 import chromadb
 
 # Set up LLM (ollama, llama2:7b)
-Settings.llm = set_llm(source="ollama", model="llama2:13b")
+Settings.llm = set_llm(source="ollama", model="llama3.1:8b")
 
 # Define our embedding model
-Settings.embed_model = OllamaEmbedding(model_name="nomic-embed-text:latest")
+Settings.embed_model = OllamaEmbedding(model_name="mitoza/Qwen3-Embedding-0.6B")
 
 # Set up vector database
-chroma_client = chromadb.PersistentClient(path="./chroma_db") # For Prod
+chroma_client = chromadb.PersistentClient(path="./chroma_db") 
 chroma_collection = chroma_client.get_or_create_collection("index")
 vector_store = ChromaVectorStore(chroma_collection=chroma_collection)
 storage_context = StorageContext.from_defaults(vector_store=vector_store)
