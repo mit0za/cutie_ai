@@ -154,14 +154,37 @@ def format_response(response):
     """
     return f"\n {response}"
 
-def format_metadata(response, show_full_text: bool = False) -> str:
+def clean_source_text(text: str) -> str:
+    """
+    Remove boilerplate lines from source like URL and date.
+    """
+    lines = text.strip().splitlines()
+    cleaned_lines = []
+
+    months = {
+        "january", "february", "march", "april", "may", "june",
+        "july", "august", "september", "october", "november", "december"
+    }
+
+    for line in lines:
+        stripped = line.strip().lower()
+
+        if "nla.gov.au" in stripped or stripped.startswith("http"):
+            continue
+
+        if "page" in stripped and any(month in stripped for month in months):
+            continue
+
+        cleaned_lines.append(line)
+
+    return "\n".join(cleaned_lines)
+
+
+
+def format_metadata(response) -> str:
     """
     Format the metadata into a single string for display.
     
-    Args:
-        response: Query response object
-        show_full_text: Whether to show full source text or truncated version
-
     Returns:
         A formatted string of the response and associated metadata.
     """
@@ -171,6 +194,7 @@ def format_metadata(response, show_full_text: bool = False) -> str:
         output.append(f"\n--- Source {i} ---")
 
         metadata = source_node.node.metadata
+        # Display metadata if it's not empty
         if metadata:
             doc_type = metadata.get('document_type', 'general')
 
@@ -181,16 +205,7 @@ def format_metadata(response, show_full_text: bool = False) -> str:
             output.append(f"🗂️ Source File: {metadata.get('source_filename', 'Unknown')}")
 
         # Display text content
-        text = source_node.node.get_text()
-        if show_full_text:
-            output.append(f"\nContent:\n{text}")
-        else:
-            max_chars = 500
-            if len(text) > max_chars:
-                output.append(f"\nContent (first {max_chars} chars):\n{text[:max_chars]}...")
-            else:
-                output.append(f"\nContent:\n{text}")
-
-        output.append("-" * 40)
+        text = clean_source_text(source_node.node.get_text())
+        output.append(f"{text}")
 
     return "\n".join(output)
