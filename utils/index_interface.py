@@ -1,11 +1,6 @@
-"""
-index_interface.py
-Updated version with metadata extraction integration
-"""
-
 from llama_index.core import VectorStoreIndex, SimpleDirectoryReader
 from llama_index.core.node_parser import SentenceSplitter
-from lib.metadata_extractor import create_metadata_fn
+from utils.metadata_extractor import create_metadata_fn
 
 
 def load_or_create_index(vector_store, storage_context, data_path="./data"):
