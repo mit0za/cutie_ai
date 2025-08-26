@@ -1,4 +1,4 @@
-from interfaces.llm_interface import set_llm
+from utils.llm_manager import set_llm
 from llama_index.core import Settings, StorageContext
 from llama_index.embeddings.ollama import OllamaEmbedding
 from llama_index.vector_stores.chroma import ChromaVectorStore

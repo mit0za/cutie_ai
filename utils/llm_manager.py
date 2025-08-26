@@ -1,4 +1,10 @@
-from utils.llm_loader import get_ollama_model
+from llama_index.llms.ollama import Ollama
+
+def get_ollama_model(model):
+    """
+    Load a locally hosted Ollama model
+    """
+    return Ollama(model=model)
 
 def set_llm(source, model=None, api_key=None):
     """
