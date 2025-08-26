@@ -11,9 +11,9 @@ pip install -r requirements.txt
 ollama pull llama3.1:8b
 ```
 
-**[Embed Model](https://ollama.com/dengcao/Qwen3-Embedding-0.6B)**
+**[Embed Model](https://ollama.com/library/nomic-embed-text:v1.5)**
 ```
-ollama run dengcao/Qwen3-Embedding-0.6B
+ollama pull nomic-embed-text:v1.5
 ```
 
 **[Rerank model](https://ollama.com/linux6200/bge-reranker-v2-m3/tags)**
