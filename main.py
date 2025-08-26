@@ -2,9 +2,9 @@ from utils.llm_manager import set_llm
 from llama_index.core import Settings, StorageContext
 from llama_index.embeddings.ollama import OllamaEmbedding
 from llama_index.vector_stores.chroma import ChromaVectorStore
-from interfaces.index_interface import load_or_create_index
+from utils.index_manager import load_or_create_index
 from llama_index.core.query_engine import CitationQueryEngine
-from lib.custom_queryEngine import create_metadata_query_engine, format_response,format_metadata
+from utils.custom_queryEngine import create_metadata_query_engine, format_response,format_metadata
 import chromadb
 
 # Set up LLM (ollama, llama2:7b)
