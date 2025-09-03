@@ -5,7 +5,9 @@ from llama_index.vector_stores.chroma import ChromaVectorStore
 from utils.index_manager import load_or_create_index
 from llama_index.core.query_engine import CitationQueryEngine
 from utils.custom_queryEngine import create_metadata_query_engine, format_response,format_metadata
-import chromadb
+import chromadb, sys
+from ui.mainWindow import MainWindow
+from PySide6.QtWidgets import QApplication
 
 # Set up LLM (ollama, llama2:7b)
 Settings.llm = set_llm(source="ollama", model="llama3.1:8b")
@@ -30,8 +32,16 @@ query_engine = create_metadata_query_engine(
     verbose=True
 )
 
-query = "The new observatory that was built in Adelaide University grounds. How much was it expected to cost?"
-# query = "Which newspaper reported about the observatory construction?"
-resp = query_engine.query(query)
-print(format_response(resp))
-print(format_metadata(resp))
+# Set up UI
+app = QApplication(sys.argv) # Core of QT
+
+window = MainWindow()
+window.show() # window will not show unless specify
+
+sys.exit(app.exec())
+
+# query = "The new observatory that was built in Adelaide University grounds. How much was it expected to cost?"
+# query = "Tell me about what happen from 1854 to 1870."
+# resp = query_engine.query(query)
+# print(format_response(resp))
+# print(format_metadata(resp))
