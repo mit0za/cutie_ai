@@ -30,9 +30,9 @@ class ChatBox(QWidget):
         input_layout.addWidget(self.input_widget, stretch=1)
 
         # Send button
-        send_button = QPushButton("Send")
-        send_button.setFixedHeight(50)
-        input_layout.addWidget(send_button)
+        self.send_button = QPushButton("Send")
+        self.send_button.setFixedHeight(50)
+        input_layout.addWidget(self.send_button)
 
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
 
