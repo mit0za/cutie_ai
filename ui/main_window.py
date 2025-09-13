@@ -1,12 +1,10 @@
-from PySide6.QtWidgets import QApplication, QMainWindow, QLabel, QTextBrowser, QTextEdit, QVBoxLayout, QWidget, QHBoxLayout, QTabWidget, QToolBox
-from PySide6.QtCore import Qt
-
+from PySide6.QtWidgets import (QApplication, QMainWindow, QTextBrowser, 
+                               QVBoxLayout, QWidget, QHBoxLayout)
+from widget.chat_box import ChatBox
 class MainWindow(QMainWindow):
 
     def __init__(self):
         super().__init__()
-
-        # Set the title of the windows
         self.setWindowTitle("Cutie AI")
 
         # Create container
@@ -14,44 +12,32 @@ class MainWindow(QMainWindow):
         #Set it in the middle of the screen
         self.setCentralWidget(container)
 
-        # Horizontal layout which will display the two verticle layout
-        layout = QHBoxLayout()
-        # Apply layout to container
-        container.setLayout(layout)
-        
-        # Verticale layout for tabs or sth on the left side
-        left_layout = QVBoxLayout()
-        left_widget = QWidget()
-        left_widget.setLayout(left_layout)
+        # Use horizontal layout (will add left_layout later)
+        main_layout = QHBoxLayout(container)
 
-        # Vertical layout for ai's response and chatbox (main attraction)
+        # Right side
         right_layout = QVBoxLayout()
         right_widget = QWidget()
         right_widget.setLayout(right_layout)
+        main_layout.addWidget(right_widget)
 
-        # Add both widget to the horizontal layout
-        layout.addWidget(left_widget)
-        layout.addWidget(right_widget)
+        # Chat display
+        chat_display = QTextBrowser()
+        right_layout.addWidget(chat_display)
 
-        # 
-        left_widget.setFixedWidth(250)
+        # Input layout
+        # input_layout = QHBoxLayout()
+        # right_layout.addLayout(input_layout)
 
-        # tabs = QTabWidget()
-        # tabs.addTab(QLabel("Tab 1"), "Something something here")
-        # tabs.addTab(QLabel("Tab 2"), "Something something here")
-        # left_layout.addWidget(tabs)
+        chat_box = ChatBox()
+        right_layout.addWidget(chat_box)
 
 
-        tabs = QTabWidget()
-        tabs.addTab(QLabel("AI Context goes here"), "Context")
-        tabs.addTab(QLabel("System Prompts"), "Prompts")
-        left_layout.addWidget(tabs)
 
-        # test = QTextBrowser()
-        output_label = QLabel("Hello This is a chat box")
-        right_layout.addWidget(output_label)
 
-        # test = QTextEdit()
 
-        # self.setCentralWidget(label)
-        # self.setCentralWidget(test)
+if __name__ == "__main__":
+    app = QApplication([])
+    window = MainWindow()
+    window.show()
+    app.exec()
