@@ -7,6 +7,8 @@ class ChatBox(QWidget):
 
         # Horizontal Layouat
         input_layout = QHBoxLayout(self)
+        input_layout.setContentsMargins(0, 0, 0, 0)
+        input_layout.setSpacing(5)
 
         # Input widget
         self.input_widget = QTextEdit(undoRedoEnabled=1)
