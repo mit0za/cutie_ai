@@ -30,3 +30,5 @@ def build_query_engine():
         streaming=True,
         verbose=True
     )
+
+    return query_engine
