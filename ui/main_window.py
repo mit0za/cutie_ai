@@ -1,7 +1,7 @@
 from PySide6.QtWidgets import (QApplication, QMainWindow, QTextBrowser, 
                                QVBoxLayout, QWidget, QHBoxLayout)
-from widget.chat_box import ChatBox
-from widget.chat_display import ChatDisplay
+from ui.widget.chat_box import ChatBox
+from ui.widget.chat_display import ChatDisplay
 class MainWindow(QMainWindow):
 
     def __init__(self):
