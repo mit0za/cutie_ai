@@ -1,6 +1,5 @@
 from PySide6.QtWidgets import (QApplication, QMainWindow, QVBoxLayout, QWidget, QHBoxLayout, QMessageBox)
 from PySide6.QtCore import QTimer, QThread
-from backend.engine_manager import build_query_engine
 from backend.engine_worker import EngineWorker
 from ui.widget import ChatBox, ChatDisplay, LoadingDialog
 
@@ -34,8 +33,7 @@ class MainWindow(QMainWindow):
         right_layout.addWidget(self.chat_box) # Add chat_box
         self.chat_box.send_button.clicked.connect(self.handle_send) # Connect chat_box to handle_send func
 
-        self.loading_dialog = LoadingDialog(self)
-
+        self.loading_dialog = LoadingDialog(self) # Loading pop up
 
         self.thread = QThread() # Create new background thread
         self.worker = EngineWorker() # Create worker obj
