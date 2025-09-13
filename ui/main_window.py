@@ -1,6 +1,7 @@
 from PySide6.QtWidgets import (QApplication, QMainWindow, QTextBrowser, 
                                QVBoxLayout, QWidget, QHBoxLayout)
 from widget.chat_box import ChatBox
+from widget.chat_display import ChatDisplay
 class MainWindow(QMainWindow):
 
     def __init__(self):
@@ -22,18 +23,11 @@ class MainWindow(QMainWindow):
         main_layout.addWidget(right_widget)
 
         # Chat display
-        chat_display = QTextBrowser()
-        right_layout.addWidget(chat_display)
-
-        # Input layout
-        # input_layout = QHBoxLayout()
-        # right_layout.addLayout(input_layout)
+        chat_display = ChatDisplay()
+        right_layout.addWidget(chat_display, stretch=1)
 
         chat_box = ChatBox()
         right_layout.addWidget(chat_box)
-
-
-
 
 
 if __name__ == "__main__":
