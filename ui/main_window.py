@@ -1,9 +1,9 @@
 from PySide6.QtWidgets import QApplication
-from qfluentwidgets import FluentWindow, SystemThemeListener, isDarkTheme
-# from PySide6.QtCore 
+from qfluentwidgets import FluentWindow, SystemThemeListener, isDarkTheme, FluentIcon, NavigationItemPosition
 from PySide6.QtGui import QIcon
 from ui.config import cfg
-
+from ui.view.chat_interface import ChatInterface
+from ui.view.settings_interface import SettingsInterface
 
 class MainWindow(FluentWindow):
 
@@ -15,6 +15,24 @@ class MainWindow(FluentWindow):
 
         # enable acrylic effect
         self.navigationInterface.setAcrylicEnabled(True)
+
+        # create side bar interface
+        self.chatInterface = ChatInterface(self)
+        self.settingInterface = SettingsInterface(self)
+
+        # add interface to side bar
+        self.initSidebar()
+        self.initWindow()
+
+
+    def initSidebar(self):
+        """ add side bar"""
+        self.addSubInterface(self.chatInterface, FluentIcon.CHAT, self.tr("Chat"))
+        self.navigationInterface.addSeparator()
+
+        pos = NavigationItemPosition.SCROLL
+
+        self.addSubInterface(self.settingInterface, FluentIcon.SETTING, self.tr("Settings"), NavigationItemPosition.BOTTOM)
 
 
     def initWindow(self):
@@ -37,9 +55,3 @@ class MainWindow(FluentWindow):
         QApplication.processEvents()
 
 
-
-if __name__ == "__main__":
-    app = QApplication([])   
-    window = MainWindow()
-    window.show()
-    app.exec()
