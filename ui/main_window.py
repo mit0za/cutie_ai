@@ -1,7 +1,9 @@
 from PySide6.QtWidgets import QApplication
 from qfluentwidgets import FluentWindow, SystemThemeListener, isDarkTheme, FluentIcon, NavigationItemPosition
 from PySide6.QtGui import QIcon
+from PySide6.QtCore import QTimer
 from ui.config import cfg
+from ui.signal_bus import signalBus
 from ui.view.chat_interface import ChatInterface
 from ui.view.settings_interface import SettingsInterface
 
@@ -20,6 +22,11 @@ class MainWindow(FluentWindow):
         self.chatInterface = ChatInterface(self)
         self.settingInterface = SettingsInterface(self)
 
+        
+        self.connectSignalToSlot()
+
+        self.themeListener.start()
+
         # add interface to side bar
         self.initSidebar()
         self.initWindow()
@@ -30,8 +37,7 @@ class MainWindow(FluentWindow):
         self.addSubInterface(self.chatInterface, FluentIcon.CHAT, self.tr("Chat"))
         self.navigationInterface.addSeparator()
 
-        pos = NavigationItemPosition.SCROLL
-
+        # pos = NavigationItemPosition.SCROLL
         self.addSubInterface(self.settingInterface, FluentIcon.SETTING, self.tr("Settings"), NavigationItemPosition.BOTTOM)
 
 
@@ -54,4 +60,18 @@ class MainWindow(FluentWindow):
         self.show()
         QApplication.processEvents()
 
+    def closeEvent(self, e):
+        self.themeListener.terminate()
+        self.themeListener.deleteLater()
+        return super().closeEvent(e)
+    
+    def _onThemeChangedFinished(self):
+        super()._onThemeChangedFinished()
+
+        # retry
+        if self.isMicaEffectEnabled():
+            QTimer.singleShot(100, lambda: self.windowEffect.setMicaEffect(self.winId(), isDarkTheme()))
+
+    def connectSignalToSlot(self):
+        signalBus.micaEnableChanged.connect(self.setMicaEffectEnabled)
 

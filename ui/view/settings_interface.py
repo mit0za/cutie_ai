@@ -1,10 +1,11 @@
-from qfluentwidgets import (ScrollArea, ExpandLayout, ScrollArea, setTheme, setThemeColor, 
+from qfluentwidgets import (ScrollArea, ExpandLayout, ScrollArea, setTheme, setThemeColor, isDarkTheme,  
                             SettingCardGroup, SwitchSettingCard, FluentIcon, OptionsSettingCard, CustomColorSettingCard, InfoBar)
 from PySide6.QtWidgets import QWidget, QLabel
 from PySide6.QtCore import Qt, Signal
-from ui.config import cfg
+from ui.config import cfg, isWin11
 from utils.style_sheet import StyleSheet
-
+from ui.signal_bus import signalBus
+from ui.style_sheet import StyleSheet
 
 class SettingsInterface(ScrollArea):
     """ Settings interface """
@@ -57,7 +58,6 @@ class SettingsInterface(ScrollArea):
             parent=self.personalGroup
         )
 
-
         self.__initWidget()
 
     def __initWidget(self):
@@ -71,7 +71,12 @@ class SettingsInterface(ScrollArea):
         # init style sheet
         self.scrollWidget.setObjectName('scrollwidget')
         self.settingLabel.setObjectName('settingLabel')
+
+        self.setProperty("theme", "dark" if isDarkTheme() else "light")
         StyleSheet.SETTING_INTERFACE.apply(self)
+        cfg.themeChanged.connect(self.__onThemeChanged)
+
+        self.micaCard.setEnabled(isWin11())
 
         # init layout
         self.__initLayout()
@@ -108,3 +113,9 @@ class SettingsInterface(ScrollArea):
 
         cfg.themeChanged.connect(setTheme) 
         self.themeColorCard.colorChanged.connect(lambda c: setThemeColor(c))
+        self.micaCard.checkedChanged.connect(signalBus.micaEnableChanged)
+
+    def __onThemeChanged(self, *_):
+        from qfluentwidgets import isDarkTheme
+        self.setProperty("theme", "dark" if isDarkTheme() else "light")
+        StyleSheet.SETTING_INTERFACE.apply(self)
