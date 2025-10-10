@@ -1,7 +1,7 @@
 from qfluentwidgets import (ScrollArea, ExpandLayout, ScrollArea, setTheme, setThemeColor, 
-                            SettingCardGroup, SwitchSettingCard, FluentIcon, OptionsSettingCard, CustomColorSettingCard)
+                            SettingCardGroup, SwitchSettingCard, FluentIcon, OptionsSettingCard, CustomColorSettingCard, InfoBar)
 from PySide6.QtWidgets import QWidget, QLabel
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal
 from ui.config import cfg
 from utils.style_sheet import StyleSheet
 
@@ -17,7 +17,7 @@ class SettingsInterface(ScrollArea):
         # setting label
         self.settingLabel = QLabel(self.tr("Settings"), self)
 
-                # personalization
+        # personalization
         self.personalGroup = SettingCardGroup(
             self.tr('Personalization'), self.scrollWidget)
         self.micaCard = SwitchSettingCard(
@@ -59,7 +59,6 @@ class SettingsInterface(ScrollArea):
 
 
         self.__initWidget()
-        self.__initLayout()
 
     def __initWidget(self):
         self.resize(1000, 800)
@@ -73,6 +72,11 @@ class SettingsInterface(ScrollArea):
         self.scrollWidget.setObjectName('scrollwidget')
         self.settingLabel.setObjectName('settingLabel')
         StyleSheet.SETTING_INTERFACE.apply(self)
+
+        # init layout
+        self.__initLayout()
+        self.__connectSignalToSlot()
+
 
     def __initLayout(self):
         self.settingLabel.move(36, 30)
@@ -89,8 +93,18 @@ class SettingsInterface(ScrollArea):
         self.expandLayout.addWidget(self.personalGroup)
 
 
+    def __showRestartTooltip(self):
+        """toast restart msg"""
+        InfoBar.success(
+            self.tr("Updated successfully"),
+            self.tr("Configuration takes effect after restart"),
+            duration=1500,
+            parent=self
+        )
     def __connectSignalToSlot(self):
         """ connect signal to slot """
+        # Show toast msg
+        cfg.appRestartSig.connect(self.__showRestartTooltip)
+
         cfg.themeChanged.connect(setTheme) 
         self.themeColorCard.colorChanged.connect(lambda c: setThemeColor(c))
-        # self.micaCard.checkedChanged.connect(signalBus.)
