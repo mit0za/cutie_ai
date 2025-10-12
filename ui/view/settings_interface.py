@@ -1,7 +1,7 @@
 from qfluentwidgets import (ScrollArea, ExpandLayout, ScrollArea, setTheme, setThemeColor, isDarkTheme,  
-                            SettingCardGroup, SwitchSettingCard, FluentIcon, OptionsSettingCard, CustomColorSettingCard, InfoBar)
+                            SettingCardGroup, SwitchSettingCard, FluentIcon, OptionsSettingCard, CustomColorSettingCard, InfoBar, FolderListSettingCard)
 from PySide6.QtWidgets import QWidget, QLabel
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, Signal, QStandardPaths
 from ui.config import cfg, isWin11
 from utils.style_sheet import StyleSheet
 from ui.signal_bus import signalBus
@@ -18,6 +18,16 @@ class SettingsInterface(ScrollArea):
         # setting label
         self.settingLabel = QLabel(self.tr("Settings"), self)
 
+        # data 
+        self.dataGroup = SettingCardGroup(
+            self.tr("Data"), self.scrollWidget)
+        self.dataPicker = FolderListSettingCard(
+            cfg.dataFolders,
+            self.tr("Locate data"),
+            directory=QStandardPaths.writableLocation(
+                QStandardPaths.AppConfigLocation),
+            parent=self.dataGroup
+        )
         # personalization
         self.personalGroup = SettingCardGroup(
             self.tr('Personalization'), self.scrollWidget)
@@ -86,7 +96,10 @@ class SettingsInterface(ScrollArea):
     def __initLayout(self):
         self.settingLabel.move(36, 30)
 
-        # add cards to group
+        # add card to data group
+        self.dataGroup.addSettingCard(self.dataPicker)
+
+        # add cards to personalize group
         self.personalGroup.addSettingCard(self.micaCard)
         self.personalGroup.addSettingCard(self.themeCard)
         self.personalGroup.addSettingCard(self.themeColorCard)
@@ -95,6 +108,8 @@ class SettingsInterface(ScrollArea):
         # add setting card group to layout
         self.expandLayout.setSpacing(28)
         self.expandLayout.setContentsMargins(36, 10, 36, 0)
+        # Add data group and personalGroup to the setting page
+        self.expandLayout.addWidget(self.dataGroup)
         self.expandLayout.addWidget(self.personalGroup)
 
 

@@ -1,5 +1,5 @@
 import sys
-from qfluentwidgets import QConfig, ConfigItem, BoolValidator, OptionsConfigItem, OptionsValidator, RangeConfigItem, RangeValidator, Theme, qconfig
+from qfluentwidgets import QConfig, ConfigItem, BoolValidator, OptionsConfigItem, OptionsValidator, RangeConfigItem, RangeValidator, Theme, qconfig, FolderListValidator
 
 def isWin11():
     return sys.platform == 'win32' and sys.getwindowsversion().build >= 22000
@@ -9,6 +9,8 @@ class Config(QConfig):
     micaEnabled = ConfigItem("MainWindow", "MicaEnabled", isWin11(), BoolValidator())
     dpiScale = OptionsConfigItem(
         "MainWindow", "DpiScale", "Auto", OptionsValidator([1, 1.25, 1.5, 1.75, 2, "Auto"]), restart=True)
+    dataFolders = ConfigItem(
+        "Folders", "Data", [], FolderListValidator())
 
     # Material
     blurRadius  = RangeConfigItem("Material", "AcrylicBlurRadius", 15, RangeValidator(0, 40))
