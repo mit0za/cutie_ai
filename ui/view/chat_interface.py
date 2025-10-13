@@ -1,5 +1,7 @@
-from qfluentwidgets import ScrollArea, setTheme, Theme, TextBrowser
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout
+from qfluentwidgets import ScrollArea, setTheme, Theme, TextBrowser, TextEdit, PrimaryPushButton, FluentIcon, PrimaryToolButton, setCustomStyleSheet
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QSizePolicy, QTextBrowser, QTextEdit
+from PySide6.QtCore import QTimer, Qt
+from ui.style_sheet import StyleSheet
 
 class ChatInterface(ScrollArea):
     """ Home interface """
@@ -8,17 +10,56 @@ class ChatInterface(ScrollArea):
         super().__init__(parent=parent)
         self.setObjectName("chatInterface")
         setTheme(Theme.DARK)
+        StyleSheet.SETTING_INTERFACE.apply(self)
 
         # layout setup
         self.view = QWidget()
         self.setWidget(self.view)
         self.setWidgetResizable(True)
-        main_layout = QVBoxLayout(self.view)
+        # use verticle layout for displaying text and input area
+        main_layout = QVBoxLayout(self.view) 
         main_layout.setContentsMargins(12, 12, 12, 12)
         main_layout.setSpacing(8)
 
         # chat display
         self.chat_display = TextBrowser()
+        self.chat_display.setObjectName("textBrowser")
         self.chat_display.setOpenExternalLinks(True)
         self.chat_display.setReadOnly(True)
+
+        # Style text browser
+        chatDisplay_qss = "TextBrowser{background-color: transparent;} TextBrowser#textBrowser:focus {background-color: transparent;} TextBrowser#textBrowser:hover,TextBrowser#textBrowser:pressed{background-color: transparent;}"
+        setCustomStyleSheet(self.chat_display, chatDisplay_qss, chatDisplay_qss)
+        self.chat_display.setFocusPolicy(Qt.NoFocus)
+
         main_layout.addWidget(self.chat_display) # add to verticle layout
+
+        # input
+        # Use horizontal layout for input area and button
+        input_layout = QHBoxLayout()
+        input_layout.setContentsMargins(0, 0, 0, 0)
+        input_layout.setSpacing(5)
+
+        self.input_box = TextEdit()
+        self.input_box.setObjectName("textEdit")
+        self.input_box.setPlaceholderText("Asking anything...")
+        self.input_box.setMinimumHeight(40)
+        self.input_box.setMaximumHeight(200)
+        self.input_box.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        # self.input_box.textChanged.connect(self.autoResize)
+        # QTimer.singleShot(0, self.autoResize)
+
+        # Style text edit
+        inputBox_qss = "TextEdit{background-color: transparent;} TextEdit#textEdit:focus {background-color: transparent;} TextEdit#textEdit:hover,TextEdit#textEdit:pressed{background-color: transparent;}"
+        setCustomStyleSheet(self.input_box, inputBox_qss, inputBox_qss)
+        # self.input_box.setFocusPolicy(Qt.NoFocus)
+        
+        # Add input_box to horizontal layout
+        input_layout.addWidget(self.input_box, stretch=1)
+        
+        self.push_button = PrimaryToolButton(FluentIcon.UP)
+        # self.push_button = PrimaryPushButton(FluentIcon.UP)
+        self.push_button.setFixedHeight(45)
+        input_layout.addWidget(self.push_button)
+
+        main_layout.addLayout(input_layout)
