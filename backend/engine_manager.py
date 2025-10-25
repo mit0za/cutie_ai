@@ -8,39 +8,35 @@ from utils.custom_queryEngine import create_metadata_query_engine, format_respon
 from PySide6.QtCore import QThread, Signal
 import chromadb
 
-def build_query_engine():
-    # Set up LLM (ollama, llama2:7b)
-    Settings.llm = set_llm(source="ollama", model="llama3.1:8b")
-
-    # Define our embedding model
-    # Settings.embed_model = OllamaEmbedding(model_name="dengcao/Qwen3-Embedding-0.6B:F16")
-    Settings.embed_model = OllamaEmbedding(model_name="nomic-embed-text:latest")
-
-    # Set up vector database
-    chroma_client = chromadb.PersistentClient(path="./chroma_db") 
-    chroma_collection = chroma_client.get_or_create_collection("index")
-    vector_store = ChromaVectorStore(chroma_collection=chroma_collection)
-    storage_context = StorageContext.from_defaults(vector_store=vector_store)
-    index = load_or_create_index(vector_store, storage_context, data_path="./data")
-
-    # query_engine = CitationQueryEngine.from_args(index, similarity_top_k=3, citation_chunk_size=512, streaming=True)
-    query_engine = create_metadata_query_engine(
-        index,
-        similarity_top_k=3,
-        citation_chunk_size=512,
-        streaming=True,
-        verbose=True
-    )
-
-    return query_engine
-
 class EngineManager(QThread):
     finished = Signal(object)
     error = Signal(str)
+    progress = Signal(str)
 
     def run(self):
         try:
-            engine = build_query_engine()
-            self.finished.emit(engine)
+            # Set up LLM (ollama, llama2:7b)
+            Settings.llm = set_llm(source="ollama", model="llama3.1:8b")
+            # Define our embedding model
+            Settings.embed_model = OllamaEmbedding(model_name="nomic-embed-text:latest")
+
+            # Set up vector database
+            chroma_client = chromadb.PersistentClient(path="./chroma_db") 
+            chroma_collection = chroma_client.get_or_create_collection("index")
+            vector_store = ChromaVectorStore(chroma_collection=chroma_collection)
+            storage_context = StorageContext.from_defaults(vector_store=vector_store)
+
+            # Load index
+            index = load_or_create_index(vector_store, storage_context, data_path="./data", callback=self.progress.emit)
+
+            # query engine
+            query_engine = create_metadata_query_engine(
+                index,
+                similarity_top_k=3,
+                citation_chunk_size=512,
+                streaming=True,
+                verbose=True
+            )
+            self.finished.emit(query_engine)
         except Exception as e:
             self.error.emit(str(e))
