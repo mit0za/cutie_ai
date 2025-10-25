@@ -46,12 +46,12 @@ class ChatInterface(ScrollArea):
         self.input_box.setMinimumHeight(40)
         self.input_box.setMaximumHeight(200)
         self.input_box.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        # self.input_box.textChanged.connect(self.autoResize)
-        # QTimer.singleShot(0, self.autoResize)
+        self.input_box.textChanged.connect(self.autoResize)
+        QTimer.singleShot(0, self.autoResize)
 
         # Style text edit
-        inputBox_qss = "TextEdit{background-color: transparent;} TextEdit#textEdit:focus {background-color: transparent;} TextEdit#textEdit:hover,TextEdit#textEdit:pressed{background-color: transparent;}"
-        setCustomStyleSheet(self.input_box, inputBox_qss, inputBox_qss)
+        # inputBox_qss = "TextEdit{background-color: transparent;} TextEdit#textEdit:focus {background-color: transparent;} TextEdit#textEdit:hover,TextEdit#textEdit:pressed{background-color: transparent;}"
+        # setCustomStyleSheet(self.input_box, inputBox_qss, inputBox_qss)
         # self.input_box.setFocusPolicy(Qt.NoFocus)
         
         # Add input_box to horizontal layout
@@ -63,3 +63,9 @@ class ChatInterface(ScrollArea):
         input_layout.addWidget(self.push_button)
 
         main_layout.addLayout(input_layout)
+
+    def autoResize(self):
+        doc = self.input_box.document()
+        doc.setTextWidth(self.input_box.viewport().width())
+        new_height = min(max(40, int(doc.size().height()) + 10), 200)
+        self.input_box.setFixedHeight(new_height)
