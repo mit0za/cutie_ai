@@ -2,7 +2,6 @@ import os
 from typing import Union, List
 from llama_index.core import VectorStoreIndex, SimpleDirectoryReader
 from llama_index.core.node_parser import SentenceSplitter
-from utils.metadata_extractor import create_metadata_fn
 from PySide6.QtCore import QMetaObject, Qt
 
 def load_or_create_index(vector_store, storage_context, data_path: Union[str, List[str]] = "./data", callback=None):
@@ -50,7 +49,6 @@ def load_or_create_index(vector_store, storage_context, data_path: Union[str, Li
             reader = SimpleDirectoryReader(
                 path,
                 recursive=True,
-                file_metadata=create_metadata_fn()
             )
             docs = reader.load_data(show_progress=True)
             log(f"[Rebuild] Loaded {len(docs)} documents from {path}")
