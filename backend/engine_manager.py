@@ -4,7 +4,6 @@ from llama_index.embeddings.ollama import OllamaEmbedding
 from llama_index.vector_stores.chroma import ChromaVectorStore
 from utils.index_manager import load_or_create_index
 from llama_index.core.query_engine import CitationQueryEngine
-from utils.custom_queryEngine import create_metadata_query_engine, format_response,format_metadata
 from PySide6.QtCore import QThread, Signal
 from ui.config import cfg
 import chromadb
@@ -20,12 +19,12 @@ class EngineManager(QThread):
 
     def run(self):
         try:
-            self.progress.emit("Setting up LLM (Llama 3.1:8B)")
+            # self.progress.emit("Setting up LLM (Llama 3.1:8B)")
             # Set up LLM (ollama, llama2:7b)
             Settings.llm = set_llm(source="ollama", model="llama3.1:8b")
             # Define our embedding model
             Settings.embed_model = OllamaEmbedding(model_name="nomic-embed-text:latest")
-            self.progress.emit("LLM and Embedding model ready.")
+            # self.progress.emit("LLM and Embedding model ready.")
             self.llm_ready.emit()
 
             # Set up vector database
@@ -33,7 +32,7 @@ class EngineManager(QThread):
             chroma_collection = chroma_client.get_or_create_collection("index")
             vector_store = ChromaVectorStore(chroma_collection=chroma_collection)
             storage_context = StorageContext.from_defaults(vector_store=vector_store)
-            self.progress.emit("Database connected successfully.")
+            # self.progress.emit("Database connected successfully.")
             self.db_ready.emit()
 
             get_collection = chroma_collection.count()
@@ -41,7 +40,7 @@ class EngineManager(QThread):
 
             if not data_paths and get_collection == 0:
                 self.critical_error.emit(
-                    "No data folders or index found. Please locate your data folder to start indexing or import your index collection.")
+                    "No data folders nor index found. Please locate your data folder to start indexing or import your index collection.")
                 return
 
             if not data_paths and get_collection > 0:
@@ -52,14 +51,14 @@ class EngineManager(QThread):
                 index = load_or_create_index(vector_store, storage_context, data_path=data_paths, callback=self.progress.emit)
 
             self.progress.emit("Initializing query engine...")
-            query_engine = create_metadata_query_engine(
+            query_engine = CitationQueryEngine(
                 index,
-                similarity_top_k=3,
+                similarity_top_k=10,
                 citation_chunk_size=512,
                 streaming=True,
                 verbose=True
             )
-            self.progress.emit("Engine Initialized successfully")
+            # self.progress.emit("Engine Initialized successfully")
             self.engine_ready.emit(query_engine)
             # Load index
             # data_path = cfg.dataFolders.value or ["./data"]
