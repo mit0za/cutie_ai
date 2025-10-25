@@ -1,7 +1,8 @@
-from qfluentwidgets import ScrollArea, setTheme, Theme, TextBrowser, TextEdit, PrimaryPushButton, FluentIcon, PrimaryToolButton, setCustomStyleSheet
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QSizePolicy, QTextBrowser, QTextEdit
+from qfluentwidgets import ScrollArea, setTheme, Theme, TextBrowser, TextEdit, FluentIcon, PrimaryToolButton, setCustomStyleSheet, InfoBar, InfoBarPosition
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QSizePolicy 
 from PySide6.QtCore import QTimer, Qt
 from ui.style_sheet import StyleSheet
+from backend.engine_manager import EngineManager
 
 class ChatInterface(ScrollArea):
     """ Home interface """
@@ -34,12 +35,12 @@ class ChatInterface(ScrollArea):
 
         main_layout.addWidget(self.chat_display) # add to verticle layout
 
-        # input
         # Use horizontal layout for input area and button
         input_layout = QHBoxLayout()
         input_layout.setContentsMargins(0, 0, 0, 0)
         input_layout.setSpacing(5)
 
+        # Input box
         self.input_box = TextEdit()
         self.input_box.setObjectName("textEdit")
         self.input_box.setPlaceholderText("Asking anything...")
@@ -49,23 +50,59 @@ class ChatInterface(ScrollArea):
         self.input_box.textChanged.connect(self.autoResize)
         QTimer.singleShot(0, self.autoResize)
 
+        # Add input_box to horizontal layout
+        input_layout.addWidget(self.input_box, stretch=1)
+
         # Style text edit
         # inputBox_qss = "TextEdit{background-color: transparent;} TextEdit#textEdit:focus {background-color: transparent;} TextEdit#textEdit:hover,TextEdit#textEdit:pressed{background-color: transparent;}"
         # setCustomStyleSheet(self.input_box, inputBox_qss, inputBox_qss)
         # self.input_box.setFocusPolicy(Qt.NoFocus)
         
-        # Add input_box to horizontal layout
-        input_layout.addWidget(self.input_box, stretch=1)
-        
+        # Push button
         self.push_button = PrimaryToolButton(FluentIcon.UP)
         # self.push_button = PrimaryPushButton(FluentIcon.UP)
         self.push_button.setFixedHeight(45)
+        self.push_button.setEnabled(False)
+        
+        # Add input_layout to horizontal layout
         input_layout.addWidget(self.push_button)
 
+        # add horizontal layout to main layout
         main_layout.addLayout(input_layout)
+
+        self.query_engine = None
+        self.engine_thread = EngineManager()
+        self.engine_thread.finished.connect(self.engine_ready)
+        # self.engine_thread.error.connect(self.engine_error)
+        self.engine_thread.progress.connect(self.engine_progress)
+        self.engine_thread.start()
 
     def autoResize(self):
         doc = self.input_box.document()
         doc.setTextWidth(self.input_box.viewport().width())
         new_height = min(max(40, int(doc.size().height()) + 10), 200)
         self.input_box.setFixedHeight(new_height)
+
+    def engine_ready(self, engine):
+        self.query_engine = engine
+        self.push_button.setEnabled(True)
+        InfoBar.success(
+            title="LLM Ready",
+            content="LLama initialized successfully!",
+            orient=Qt.Horizontal,
+            isClosable=True,
+            position=InfoBarPosition.TOP_RIGHT,
+            duration=2000,
+            parent=self
+        )
+
+    def engine_progress(self, msg):
+        InfoBar.info(
+            title="Setting up LLM",
+            content=msg,
+            orient=Qt.Horizontal,
+            isClosable=False,
+            position=InfoBarPosition.TOP_RIGHT,
+            duration=4000,
+            parent=self
+        )

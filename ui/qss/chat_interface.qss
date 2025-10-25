@@ -1,0 +1,25 @@
+/* scroll area */
+QScrollArea,
+QScrollArea QWidget,
+QScrollArea#settingInterface,
+#scrollwidget {
+    background: transparent;
+    border: none;
+}
+
+/* header label */
+QLabel#settingLabel {
+    font-size: 20px;
+    font-weight: 600;
+    background: transparent;
+}
+
+/* LIGHT THEME OVERRIDES */
+QWidget[theme="light"] TextEdit#input_box {
+    color: #1b4;
+}
+
+/* DARK THEME OVERRIDES */
+QWidget[theme="dark"] TextEdit#input_box {
+    color: #41d;
+}
