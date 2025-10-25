@@ -5,6 +5,7 @@ from llama_index.vector_stores.chroma import ChromaVectorStore
 from utils.index_manager import load_or_create_index
 from llama_index.core.query_engine import CitationQueryEngine
 from utils.custom_queryEngine import create_metadata_query_engine, format_response,format_metadata
+from PySide6.QtCore import QThread, Signal
 import chromadb
 
 def build_query_engine():
@@ -32,3 +33,14 @@ def build_query_engine():
     )
 
     return query_engine
+
+class EngineManager(QThread):
+    finished = Signal(object)
+    error = Signal(str)
+
+    def run(self):
+        try:
+            engine = build_query_engine()
+            self.finished.emit(engine)
+        except Exception as e:
+            self.error.emit(str(e))
