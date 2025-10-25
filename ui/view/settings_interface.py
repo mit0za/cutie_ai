@@ -3,7 +3,6 @@ from qfluentwidgets import (ScrollArea, ExpandLayout, ScrollArea, setTheme, setT
 from PySide6.QtWidgets import QWidget, QLabel
 from PySide6.QtCore import Qt, Signal, QStandardPaths
 from ui.config import cfg, isWin11
-from utils.style_sheet import StyleSheet
 from ui.signal_bus import signalBus
 from ui.style_sheet import StyleSheet
 
