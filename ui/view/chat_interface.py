@@ -2,7 +2,7 @@ from qfluentwidgets import ScrollArea, setTheme, Theme, TextBrowser, TextEdit, F
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QSizePolicy 
 from PySide6.QtCore import QTimer, Qt
 from ui.style_sheet import StyleSheet
-from backend.engine_manager import EngineManager
+from ui.controller.engine_controller import EngineController
 
 class ChatInterface(ScrollArea):
     """ Home interface """
@@ -70,50 +70,13 @@ class ChatInterface(ScrollArea):
         # add horizontal layout to main layout
         main_layout.addLayout(input_layout)
 
-        self.query_engine = None
-        self.engine_thread = EngineManager()
-        self.engine_thread.finished.connect(self.engine_ready)
-        # self.engine_thread.error.connect(self.engine_error)
-        self.engine_thread.progress.connect(self.engine_progress)
-        self.engine_thread.start()
+        # LLM set up
+        self.engine_controller = EngineController(self)
+        self.engine_controller.start()
+
 
     def autoResize(self):
         doc = self.input_box.document()
         doc.setTextWidth(self.input_box.viewport().width())
         new_height = min(max(40, int(doc.size().height()) + 10), 200)
         self.input_box.setFixedHeight(new_height)
-
-    def engine_ready(self, engine):
-        self.query_engine = engine
-        self.push_button.setEnabled(True)
-        InfoBar.success(
-            title="LLM Ready",
-            content="LLama initialized successfully!",
-            orient=Qt.Horizontal,
-            isClosable=True,
-            position=InfoBarPosition.TOP_RIGHT,
-            duration=3000,
-            parent=self
-        )
-
-    def engine_error(self, error):
-        InfoBar.error(
-            title='Engine Error',
-            content=str(error),
-            orient=Qt.Horizontal,
-            isClosable=True,
-            duration=5000,
-            position=InfoBarPosition.TOP_RIGHT,
-            parent=self
-        )
-
-    def engine_progress(self, msg):
-        InfoBar.info(
-            title="Setting up LLM",
-            content=msg,
-            orient=Qt.Horizontal,
-            isClosable=False,
-            position=InfoBarPosition.TOP_RIGHT,
-            duration=3000,
-            parent=self
-        )
