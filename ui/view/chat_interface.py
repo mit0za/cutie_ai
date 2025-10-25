@@ -70,7 +70,7 @@ class ChatInterface(ScrollArea):
         # add horizontal layout to main layout
         main_layout.addLayout(input_layout)
 
-        # LLM set up
+        ## LLM set up ##
         self.engine_controller = EngineController(self)
         self.engine_controller.start()
 
