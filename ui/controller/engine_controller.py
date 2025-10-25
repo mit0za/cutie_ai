@@ -12,7 +12,7 @@ class EngineController:
         self.query_engine = None
 
         # Connect to signals
-        # self.engine_thread.progress.connect(self.on_progress)
+        self.engine_thread.progress.connect(self.on_progress)
         self.engine_thread.engine_ready.connect(self.on_engine_ready)
         self.engine_thread.error.connect(self.on_error)
         self.engine_thread.llm_ready.connect(self.on_llm_ready)
@@ -121,8 +121,9 @@ class EngineController:
             parent=self.parent
         )
 
-        QTimer.singleShot(800, self.restart_engine)
-
+        QTimer.singleShot(800, self.restarting_engine)
+    
+    def restarting_engine(self):
         # Restart the engine thread safely
         if self.engine_thread.isRunning():
             self.engine_thread.quit()
@@ -131,7 +132,6 @@ class EngineController:
         # Create a new thread to start fresh
         self.engine_thread = EngineManager()
         self.engine_thread.progress.connect(self.on_progress)
-        self.engine_thread.finished.connect(self.on_ready)
         self.engine_thread.error.connect(self.on_error)
         self.engine_thread.llm_ready.connect(self.on_llm_ready)
         self.engine_thread.db_ready.connect(self.on_db_ready)
