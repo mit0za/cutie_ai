@@ -92,7 +92,18 @@ class ChatInterface(ScrollArea):
             orient=Qt.Horizontal,
             isClosable=True,
             position=InfoBarPosition.TOP_RIGHT,
-            duration=2000,
+            duration=3000,
+            parent=self
+        )
+
+    def engine_error(self, error):
+        InfoBar.error(
+            title='Engine Error',
+            content=str(error),
+            orient=Qt.Horizontal,
+            isClosable=True,
+            duration=5000,
+            position=InfoBarPosition.TOP_RIGHT,
             parent=self
         )
 
@@ -103,6 +114,6 @@ class ChatInterface(ScrollArea):
             orient=Qt.Horizontal,
             isClosable=False,
             position=InfoBarPosition.TOP_RIGHT,
-            duration=4000,
+            duration=3000,
             parent=self
         )
