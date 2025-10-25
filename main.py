@@ -1,6 +1,5 @@
 from ui.main_window import MainWindow
 from PySide6.QtWidgets import QApplication
-from backend.engine_manager import build_query_engine
 import sys
 
 # Set up UI
