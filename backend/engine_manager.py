@@ -37,7 +37,7 @@ class EngineManager(QThread):
             self.db_ready.emit()
 
             get_collection = chroma_collection.count()
-            data_paths = cfg.dataFolders.value or ["./data"]
+            data_paths = cfg.dataFolders.value or []
 
             if not data_paths and get_collection == 0:
                 self.critical_error.emit(
