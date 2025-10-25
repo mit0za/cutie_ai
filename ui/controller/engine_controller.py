@@ -1,6 +1,7 @@
 from qfluentwidgets import InfoBar, InfoBarPosition
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer
 from backend.engine_manager import EngineManager
+from ui.config import cfg
 
 class EngineController:
     """ This is where we move all engine related stuff here so it's more modular and clean in chat_interface.py"""
@@ -12,12 +13,15 @@ class EngineController:
 
         # Connect to signals
         self.engine_thread.progress.connect(self.on_progress)
-        self.engine_thread.finished.connect(self.on_ready)
+        self.engine_thread.engine_ready.connect(self.on_engine_ready)
         self.engine_thread.error.connect(self.on_error)
         self.engine_thread.llm_ready.connect(self.on_llm_ready)
         self.engine_thread.db_ready.connect(self.on_db_ready)
         self.engine_thread.need_data.connect(self.on_need_data)
         self.engine_thread.critical_error.connect(self.on_critical_error)
+        
+        cfg.dataFolders.valueChanged.connect(self.on_data_folder_changed)
+        
 
     def start(self):
         self.engine_thread.start()
@@ -33,7 +37,7 @@ class EngineController:
             parent=self.parent
         )
 
-    def on_ready(self, engine):
+    def on_engine_ready(self, engine):
         self.query_engine = engine
         self.parent.push_button.setEnabled(True)
         InfoBar.success(
@@ -104,3 +108,34 @@ class EngineController:
             duration=0,
             parent=self.parent
         )
+
+    def on_data_folder_changed(self, new_paths):
+        """Triggered when user updates data folder in settings."""
+        InfoBar.info(
+            title="Data Folder Updated",
+            content="New data path selected. Rebuilding index...",
+            orient=Qt.Horizontal,
+            isClosable=False,
+            position=InfoBarPosition.TOP_RIGHT,
+            duration=4000,
+            parent=self.parent
+        )
+
+        QTimer.singleShot(800, self.restart_engine)
+
+        # Restart the engine thread safely
+        if self.engine_thread.isRunning():
+            self.engine_thread.quit()
+            self.engine_thread.wait()
+
+        # Create a new thread to start fresh
+        self.engine_thread = EngineManager()
+        self.engine_thread.progress.connect(self.on_progress)
+        self.engine_thread.finished.connect(self.on_ready)
+        self.engine_thread.error.connect(self.on_error)
+        self.engine_thread.llm_ready.connect(self.on_llm_ready)
+        self.engine_thread.db_ready.connect(self.on_db_ready)
+        self.engine_thread.need_data.connect(self.on_need_data)
+        self.engine_thread.critical_error.connect(self.on_critical_error)
+
+        self.engine_thread.start()
