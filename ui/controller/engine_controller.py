@@ -12,7 +12,7 @@ class EngineController:
         self.query_engine = None
 
         # Connect to signals
-        self.engine_thread.progress.connect(self.on_progress)
+        # self.engine_thread.progress.connect(self.on_progress)
         self.engine_thread.engine_ready.connect(self.on_engine_ready)
         self.engine_thread.error.connect(self.on_error)
         self.engine_thread.llm_ready.connect(self.on_llm_ready)
@@ -56,7 +56,7 @@ class EngineController:
             content=str(error),
             orient=Qt.Horizontal,
             isClosable=True,
-            duration=6000,
+            duration=60000,
             position=InfoBarPosition.TOP_RIGHT,
             parent=self.parent
         )
@@ -105,7 +105,7 @@ class EngineController:
             orient=Qt.Horizontal,
             isClosable=False,
             position=InfoBarPosition.TOP_RIGHT,
-            duration=0,
+            duration=-1,
             parent=self.parent
         )
 
