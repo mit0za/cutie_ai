@@ -73,7 +73,7 @@ def load_or_create_index(vector_store, storage_context, data_path: Union[str, Li
         pipeline = IngestionPipeline(transformations=[text_splitter] + extractors, cache=cache)
 
         log("Running ingestion pipeline...")
-        nodes = pipeline.run(documents, show_progress=True)
+        nodes = pipeline.run(documents=documents, show_progress=True)
         pipeline.cache.persist() # save hashes for next indexing
         log(f"Pipeline produced {len(nodes)} nodes")
 
