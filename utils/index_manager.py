@@ -6,6 +6,11 @@ from llama_index.core.extractors import (SummaryExtractor, QuestionsAnsweredExtr
 from llama_index.core.ingestion import IngestionPipeline, IngestionCache
 from PySide6.QtCore import QMetaObject, Qt
 
+# TODO[Engine]: Re-enable multiprocessing once GUI-safe process spawning is implemented.
+# Issue: PySide6 event loop + multiprocessing.spawn causes deadlock on Windows.
+# Suggested fix: Move ingestion to standalone process via multiprocessing.Process or subprocess.Popen().
+
+
 def load_or_create_index(vector_store, storage_context, data_path: Union[str, List[str]] = "./data", callback=None):
     """
     Load an index from the vector store if it has data else build a new index.
@@ -52,6 +57,10 @@ def load_or_create_index(vector_store, storage_context, data_path: Union[str, Li
 
     # cache folder
     cache = IngestionCache(dir="./cache")
+
+    # check cpu core so we can do parallel processing which hopefully
+    # speed up the parsing time
+    workers = min(4, os.cpu_count() // 2)
 
     # Count current collection
     get_collection = vector_store._collection.count()
