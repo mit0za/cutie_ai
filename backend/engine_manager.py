@@ -31,7 +31,7 @@ class EngineManager(QThread):
             chroma_client = chromadb.PersistentClient(path="./chroma_db") 
             chroma_collection = chroma_client.get_or_create_collection("index")
             vector_store = ChromaVectorStore(chroma_collection=chroma_collection)
-            storage_context = StorageContext.from_defaults(vector_store=vector_store, persist_dir="./storageContext")
+            storage_context = StorageContext.from_defaults(vector_store=vector_store)
             # self.progress.emit("Database connected successfully.")
             self.db_ready.emit()
 
