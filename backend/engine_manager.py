@@ -1,4 +1,4 @@
-from utils.llm_manager import set_llm
+from llama_index.llms.ollama import Ollama
 from llama_index.core import Settings, StorageContext
 from llama_index.embeddings.ollama import OllamaEmbedding
 from llama_index.vector_stores.chroma import ChromaVectorStore
@@ -21,9 +21,9 @@ class EngineManager(QThread):
         try:
             # self.progress.emit("Setting up LLM (Llama 3.1:8B)")
             # Set up LLM (ollama, llama2:7b)
-            Settings.llm = set_llm(source="ollama", model="llama3.1:8b")
+            Settings.llm = Ollama(source="ollama", model="llama3.1:8b")
             # Define our embedding model
-            Settings.embed_model = OllamaEmbedding(model_name="nomic-embed-text:latest")
+            Settings.embed_model = OllamaEmbedding(model_name="dengcao/Qwen3-Embedding-0.6B:F16")
             # self.progress.emit("LLM and Embedding model ready.")
             self.llm_ready.emit()
 
