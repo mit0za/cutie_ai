@@ -7,6 +7,21 @@ from llama_index.core.query_engine import CitationQueryEngine
 from PySide6.QtCore import QThread, Signal
 from ui.config import cfg
 import chromadb
+import os
+
+def storage_graph(persist_dir="./storageContext", vector_store=None):
+    """Check if storageContext exist if not create one"""
+    if os.path.exists(persist_dir) and os.listdir(persist_dir):
+        # Load existing index
+        print("Found existing storage, loading...")
+        storage_context = StorageContext.from_defaults(persist_dir=persist_dir, vector_store=vector_store)
+        return storage_context, True
+    else:
+        # Create new graph storage
+        print("No storage found, creating new...")
+        os.makedirs(persist_dir, exist_ok=True)
+        storage_context = StorageContext.from_defaults(vector_store=vector_store)
+        return storage_context, False
 
 class EngineManager(QThread):
     progress = Signal(str)
@@ -19,20 +34,19 @@ class EngineManager(QThread):
 
     def run(self):
         try:
-            # self.progress.emit("Setting up LLM (Llama 3.1:8B)")
-            # Set up LLM (ollama, llama2:7b)
-            Settings.llm = Ollama(source="ollama", model="llama3.1:8b")
-            # Define our embedding model
-            Settings.embed_model = OllamaEmbedding(model_name="dengcao/Qwen3-Embedding-0.6B:F16")
-            # self.progress.emit("LLM and Embedding model ready.")
+            # Add llama ll model via Ollama to llamaindex.settings
+            Settings.llm = Ollama(source="ollama", model="llama3.1:8b", request_timeout=600.0)
+            # Add Qwen3 embeded model via Ollama to llamaindex.setting
+            Settings.embed_model = OllamaEmbedding(model_name="dengcao/Qwen3-Embedding-0.6B:F16", embed_batch_size=64) # Change to lower batch size for prod
             self.llm_ready.emit()
 
             # Set up vector database
             chroma_client = chromadb.PersistentClient(path="./chroma_db") 
             chroma_collection = chroma_client.get_or_create_collection("index")
             vector_store = ChromaVectorStore(chroma_collection=chroma_collection)
-            storage_context = StorageContext.from_defaults(vector_store=vector_store)
-            # self.progress.emit("Database connected successfully.")
+
+            # Check if "./storageContext"
+            storage_context, existing = storage_graph("./storageContext", vector_store)
             self.db_ready.emit()
 
             get_collection = chroma_collection.count()
@@ -60,9 +74,5 @@ class EngineManager(QThread):
             )
             # self.progress.emit("Engine Initialized successfully")
             self.engine_ready.emit(query_engine)
-            # Load index
-            # data_path = cfg.dataFolders.value or ["./data"]
-            # self.progress.emit(f"Loading {len(data_path)} folders(s): {", ". join(data_path)}")
-            # index = load_or_create_index(vector_store, storage_context, data_path=data_path, callback=self.progress.emit)
         except Exception as e:
             self.error.emit(str(e))
