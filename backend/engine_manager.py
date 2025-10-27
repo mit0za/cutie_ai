@@ -37,7 +37,7 @@ class EngineManager(QThread):
             # Add llama ll model via Ollama to llamaindex.settings
             Settings.llm = Ollama(source="ollama", model="llama3.1:8b", request_timeout=600.0)
             # Add Qwen3 embeded model via Ollama to llamaindex.setting
-            Settings.embed_model = OllamaEmbedding(model_name="dengcao/Qwen3-Embedding-0.6B:F16", embed_batch_size=64) # Change to lower batch size for prod
+            Settings.embed_model = OllamaEmbedding(model_name="dengcao/Qwen3-Embedding-0.6B:F16", embed_batch_size=32) # Change to lower batch size for prod
             self.llm_ready.emit()
 
             # Set up vector database
