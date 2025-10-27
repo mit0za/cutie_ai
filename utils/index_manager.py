@@ -97,4 +97,11 @@ def load_or_create_index(vector_store, storage_context, data_path: Union[str, Li
         return index
     else:
         log(f"Found {get_collection} in collection. Loading index...")
-        return VectorStoreIndex.from_vector_store(vector_store)
+        index = VectorStoreIndex.from_vector_store(
+            vector_store=vector_store,
+            storage_context=storage_context,
+            show_progress=True
+        )
+        log(f"BOOM LET'S GO!!!")
+        return index
+        
