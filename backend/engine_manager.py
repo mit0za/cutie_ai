@@ -65,7 +65,7 @@ class EngineManager(QThread):
                 index = load_or_create_index(vector_store, storage_context, data_path=data_paths, callback=self.progress.emit)
 
             self.progress.emit("Initializing query engine...")
-            query_engine = CitationQueryEngine(
+            query_engine = CitationQueryEngine.from_args(
                 index,
                 similarity_top_k=10,
                 citation_chunk_size=512,
