@@ -3,6 +3,7 @@ from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QSizePolicy
 from PySide6.QtCore import QTimer, Qt
 from ui.style_sheet import StyleSheet
 from ui.controller.engine_controller import EngineController
+from ui.controller.pushButton_controller import PushButtonController
 
 class ChatInterface(ScrollArea):
     """ Home interface """
@@ -73,6 +74,12 @@ class ChatInterface(ScrollArea):
         ## LLM set up ##
         self.engine_controller = EngineController(self)
         self.engine_controller.start()
+
+        ## PushButton controller ##
+        self.push_button_controller = PushButtonController(self)
+        # connect to signal
+        self.push_button.clicked.connect(self.push_button_controller.on_clicked)
+        self.push_button_controller.attach_engine(self.engine_controller)
 
 
     def autoResize(self):
