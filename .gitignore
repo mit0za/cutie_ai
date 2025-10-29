@@ -8,3 +8,5 @@ chroma_db
 app/*
 ./storageContext
 cache
+models
+storageContext
