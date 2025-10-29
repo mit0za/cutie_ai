@@ -44,24 +44,6 @@ def load_or_create_index(vector_store, storage_context, data_path: Union[str, Li
         log("[Warning] No valid data folders found. Using ./data as fallback.")
         valid_paths = ["./data"]
 
-    # splitter
-    text_splitter = SentenceSplitter(chunk_size=1024, chunk_overlap=50, include_metadata=True)
-
-    # define our extractors
-    extractors = [
-        TitleExtractor(nodes=5),
-        QuestionsAnsweredExtractor(questions=3),
-        SummaryExtractor(summaries=["self"]),
-        KeywordExtractor(keywords=10),
-    ]
-
-    # cache folder
-    cache = IngestionCache(dir="./cache")
-
-    # check cpu core so we can do parallel processing which hopefully
-    # speed up the parsing time
-    workers = min(4, os.cpu_count() // 2)
-
     # Count current collection
     get_collection = vector_store._collection.count()
 
@@ -79,7 +61,15 @@ def load_or_create_index(vector_store, storage_context, data_path: Union[str, Li
         log(f"Total {len(documents)} documents loaded from all paths.")
 
         # Ingestion pipeline
-        pipeline = IngestionPipeline(transformations=[text_splitter] + extractors, cache=cache)
+        pipeline = IngestionPipeline(
+            transformations=[
+                SentenceSplitter(chunk_size=512, chunk_overlap=50, include_metadata=True),
+                # TitleExtractor(nodes=5),
+                # SummaryExtractor(summaries=["self"]),
+                KeywordExtractor(keywords=10, llm=None),
+                # QuestionsAnsweredExtractor(questions=3),
+            ]
+        )
 
         log("Running ingestion pipeline...")
         nodes = pipeline.run(documents=documents, show_progress=True)
@@ -87,13 +77,12 @@ def load_or_create_index(vector_store, storage_context, data_path: Union[str, Li
         log(f"Pipeline produced {len(nodes)} nodes")
 
         if nodes:
-            log(f"Sample metadata from first node: {nodes[0].metadata}")
+            log(f"Sample metadata from first node: {nodes[0].metadata.get("excerpt_keywords", []) [:10]}")
         
         log("Starting VectoreStoreIndex")
         index = VectorStoreIndex(nodes, storage_context=storage_context, show_progress=True)
         storage_context.persist(persist_dir="./storageContext")
         log("Index successfully built")
-
         return index
     else:
         log(f"Found {get_collection} in collection. Loading index...")

@@ -1,7 +1,6 @@
 from ui.main_window import MainWindow
 from PySide6.QtWidgets import QApplication
 import sys
-from multiprocessing import freeze_support
 
 def main():
     # Create core Qt app

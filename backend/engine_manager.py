@@ -1,6 +1,6 @@
-from llama_index.llms.ollama import Ollama
+from llama_index.llms.llama_cpp import LlamaCPP
 from llama_index.core import Settings, StorageContext
-from llama_index.embeddings.ollama import OllamaEmbedding
+from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from llama_index.vector_stores.chroma import ChromaVectorStore
 from utils.index_manager import load_or_create_index
 from llama_index.core.query_engine import CitationQueryEngine
@@ -34,11 +34,29 @@ class EngineManager(QThread):
 
     def run(self):
         try:
-            # Add llama ll model via Ollama to llamaindex.settings
-            Settings.llm = Ollama(source="ollama", model="llama3.1:8b", request_timeout=600.0)
-            # Add Qwen3 embeded model via Ollama to llamaindex.setting
-            Settings.embed_model = OllamaEmbedding(model_name="dengcao/Qwen3-Embedding-0.6B:F16", embed_batch_size=32) # Change to lower batch size for prod
+            ## Add LLM Model ##
+            Settings.llm = LlamaCPP(
+                model_path="models/Meta-Llama-3.1-8B-Instruct-Q6_K_L.gguf",
+                temperature=0.5,
+                max_new_tokens=256,
+                context_window=8192,
+                model_kwargs={
+                    "n_gpu_layers": -1,
+                    "main_gpu": 0,
+                    "n_ctx": 8192,
+                    "n_batch": 256,
+                    "use_mmap": True,
+                    "use_mlock": True,
+                },
+                verbose=False
+            )
             self.llm_ready.emit()
+
+            ## Add Embedding Model ##
+            Settings.embed_model = HuggingFaceEmbedding(
+                model_name="./models/qwen3-embedding-0.6b", 
+                device="cuda"
+                )
 
             # Set up vector database
             chroma_client = chromadb.PersistentClient(path="./chroma_db") 
