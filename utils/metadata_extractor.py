@@ -34,7 +34,6 @@ class MetaDataExtractor(BaseExtractor):
                 title = filename.capitalize()
 
             metadata_list.append({
-                "filename": filename,
                 "year": year,
                 "source": source,
                 "article_id": article_id,
