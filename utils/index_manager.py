@@ -2,9 +2,9 @@ import os
 from typing import Union, List
 from llama_index.core import VectorStoreIndex, SimpleDirectoryReader
 from llama_index.core.node_parser import SentenceSplitter
-from llama_index.core.extractors import (SummaryExtractor, QuestionsAnsweredExtractor, TitleExtractor, KeywordExtractor)
 from llama_index.core.ingestion import IngestionPipeline, IngestionCache
 from PySide6.QtCore import QMetaObject, Qt
+from utils.metadata_extractor import MetaDataExtractor
 
 # TODO[Engine]: Re-enable multiprocessing once GUI-safe process spawning is implemented.
 # Issue: PySide6 event loop + multiprocessing.spawn causes deadlock on Windows.
@@ -22,7 +22,7 @@ def load_or_create_index(vector_store, storage_context, data_path: Union[str, Li
         if callback:
             try:
                 if hasattr(callback, "__self__") and hasattr(callback.__self__, "metaObject"):
-                    QMetaObject.invokeMethod(
+                    QMetaObject.invokeMethod( 
                         callback.__self__,
                         callback.__name__ if hasattr(callback, "__name__") else "emit",
                         Qt.QueuedConnection,
@@ -64,10 +64,7 @@ def load_or_create_index(vector_store, storage_context, data_path: Union[str, Li
         pipeline = IngestionPipeline(
             transformations=[
                 SentenceSplitter(chunk_size=512, chunk_overlap=50, include_metadata=True),
-                # TitleExtractor(nodes=5),
-                # SummaryExtractor(summaries=["self"]),
-                KeywordExtractor(keywords=10, llm=None),
-                # QuestionsAnsweredExtractor(questions=3),
+                MetaDataExtractor()
             ]
         )
 
