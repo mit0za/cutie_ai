@@ -1,14 +1,15 @@
+import chromadb
+import os
 from llama_index.llms.llama_cpp import LlamaCPP
 from llama_index.core import Settings, StorageContext
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from llama_index.vector_stores.chroma import ChromaVectorStore
 from utils.index_manager import load_or_create_index
-from llama_index.core.query_engine import CitationQueryEngine
+from llama_index.core.query_engine import CitationQueryEngine, RetrieverQueryEngine, RouterQueryEngine
 from PySide6.QtCore import QThread, Signal
 from ui.config import cfg
 from llama_index.core.postprocessor import SentenceTransformerRerank
-import chromadb
-import os
+from llama_index.core.tools import QueryEngineTool
 
 def storage_graph(persist_dir="./storageContext", vector_store=None):
     """Check if storageContext exist if not create one"""
@@ -39,7 +40,7 @@ class EngineManager(QThread):
             Settings.llm = LlamaCPP(
                 model_path="models/Meta-Llama-3.1-8B-Instruct-Q6_K_L.gguf",
                 temperature=0.5,
-                max_new_tokens=256,
+                max_new_tokens=512,
                 context_window=8192,
                 model_kwargs={
                     "n_gpu_layers": -1,
@@ -59,12 +60,6 @@ class EngineManager(QThread):
                 device="cuda"
                 )
             
-            self.progress.emit("Initializing reranker...")
-            reranker = SentenceTransformerRerank(
-                model="./models/bge-reranker-large",
-                top_n=3,
-                device="cuda"
-            )
 
             # Set up vector database
             chroma_client = chromadb.PersistentClient(path="./chroma_db") 
@@ -90,8 +85,37 @@ class EngineManager(QThread):
                 self.progress.emit(f"Building new index from {len(data_paths)} folder(s)")
                 index = load_or_create_index(vector_store, storage_context, data_path=data_paths, callback=self.progress.emit)
 
-            self.progress.emit("Initializing query engine...")
-            query_engine = CitationQueryEngine.from_args(
+            self.progress.emit("Initializing reranker...")
+            reranker = SentenceTransformerRerank(
+                model="./models/bge-reranker-large",
+                top_n=3,
+                device="cuda"
+            )
+
+            # For precise query we want narrow down the search
+            precise_query_engine = CitationQueryEngine.from_args(
+                index,
+                similarity_top_k=10,
+                citation_chunk_size=256,
+                streaming=True,
+                verbose=True,
+                response_mode="compact"
+            )
+            #self.engine_ready.emit(precise_query_engine)
+
+            precise_tool = QueryEngineTool.from_defaults(
+                query_engine=precise_query_engine,
+                description=(
+                    "Best suited for short, factual, or well-defined questions where the answer "
+                    "exists as a specific statement in the text. Use this for precise queries such as "
+                    "'who founded...', 'what year...', 'when did...', 'where is...', or 'how many...'. "
+                    "Focus on accuracy and concise citation."
+                ),
+            )
+
+            # For broad query we want to get as many relevant documents as possible
+            # then use reranker to filter them out
+            broad_query_engine = CitationQueryEngine.from_args(
                 index,
                 similarity_top_k=20,
                 node_postprocessors=[reranker],
@@ -100,7 +124,26 @@ class EngineManager(QThread):
                 verbose=True,
                 response_mode="compact"
             )
-            # self.progress.emit("Engine Initialized successfully")
+
+            broad_tool = QueryEngineTool.from_defaults(
+                query_engine=broad_query_engine,
+                description=(
+                    "Use this for open-ended, descriptive, or multi-fact questions that require "
+                    "summarization or reasoning across multiple documents. Ideal for 'why', "
+                    "'how', or 'describe' questions, or when the topic spans many sources "
+                    "or includes evolving information such as costs, opinions, or timelines."
+                )
+            )
+
+            # Agent workflow
+            self.progress.emit("Initializing router query engine...")
+            query_engine = RouterQueryEngine.from_defaults(
+                query_engine_tools=[
+                    precise_tool,
+                    broad_tool
+                ],
+                llm=Settings.llm
+            )
             self.engine_ready.emit(query_engine)
         except Exception as e:
             self.error.emit(str(e))
