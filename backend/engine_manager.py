@@ -6,6 +6,7 @@ from utils.index_manager import load_or_create_index
 from llama_index.core.query_engine import CitationQueryEngine
 from PySide6.QtCore import QThread, Signal
 from ui.config import cfg
+from llama_index.core.postprocessor import SentenceTransformerRerank
 import chromadb
 import os
 
@@ -57,6 +58,13 @@ class EngineManager(QThread):
                 model_name="./models/qwen3-embedding-0.6b", 
                 device="cuda"
                 )
+            
+            self.progress.emit("Initializing reranker...")
+            reranker = SentenceTransformerRerank(
+                model="./models/bge-reranker-large",
+                top_n=3,
+                device="cuda"
+            )
 
             # Set up vector database
             chroma_client = chromadb.PersistentClient(path="./chroma_db") 
@@ -85,10 +93,12 @@ class EngineManager(QThread):
             self.progress.emit("Initializing query engine...")
             query_engine = CitationQueryEngine.from_args(
                 index,
-                similarity_top_k=10,
+                similarity_top_k=20,
+                node_postprocessors=[reranker],
                 citation_chunk_size=512,
                 streaming=True,
-                verbose=True
+                verbose=True,
+                response_mode="compact"
             )
             # self.progress.emit("Engine Initialized successfully")
             self.engine_ready.emit(query_engine)
