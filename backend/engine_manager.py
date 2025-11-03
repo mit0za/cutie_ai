@@ -10,6 +10,10 @@ from PySide6.QtCore import QThread, Signal
 from ui.config import cfg
 from llama_index.core.postprocessor import SentenceTransformerRerank
 from llama_index.core.tools import QueryEngineTool
+from lmformatenforcer import JsonSchemaParser, CharacterLevelParserConfig
+from lmformatenforcer.integrations.llamacpp import build_llamacpp_logits_processor
+from llama_index.core.selectors import LLMSingleSelector
+from llama_index.core.prompts import PromptTemplate
 
 def storage_graph(persist_dir="./storageContext", vector_store=None):
     """Check if storageContext exist if not create one"""
@@ -107,9 +111,6 @@ class EngineManager(QThread):
                 query_engine=precise_query_engine,
                 description=(
                     "Best suited for short, factual, or well-defined questions where the answer "
-                    "exists as a specific statement in the text. Use this for precise queries such as "
-                    "'who founded...', 'what year...', 'when did...', 'where is...', or 'how many...'. "
-                    "Focus on accuracy and concise citation."
                 ),
             )
 
@@ -129,20 +130,74 @@ class EngineManager(QThread):
                 query_engine=broad_query_engine,
                 description=(
                     "Use this for open-ended, descriptive, or multi-fact questions that require "
-                    "summarization or reasoning across multiple documents. Ideal for 'why', "
-                    "'how', or 'describe' questions, or when the topic spans many sources "
-                    "or includes evolving information such as costs, opinions, or timelines."
                 )
+            )
+
+            router_prompt = PromptTemplate(
+                """You are a routing model.
+            You must choose which query engine to use, given the following options:
+
+            {choices}
+
+            Question: {query_str}
+
+            Return ONLY a valid JSON array with one element following this schema:
+            [
+            {{
+                "choice": <integer>,  # 0 for the first tool, 1 for the second, etc.
+                "reason": "<concise reason>"
+            }}
+            ]"""
+            )
+
+
+            router_schema = {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "choice": {"type": "integer"},
+                        "reason": {"type": "string"}
+                    },
+                    "required": ["choice", "reason"]
+                }
+            }
+
+            # Create the parsers
+            json_parser = JsonSchemaParser(router_schema)
+            char_config = CharacterLevelParserConfig(
+                alphabet=None, 
+                max_consecutive_whitespaces=2,
+                force_json_field_order=True,
+                max_json_array_length=5
+            )
+
+            json_parser = JsonSchemaParser(router_schema)
+            json_parser.config = char_config
+
+            # Build logits processor with both arguments
+            logits_processor = build_llamacpp_logits_processor(
+                json_parser,
+                json_parser
+            )
+
+            # Attach to llama instance
+            Settings.llm._logits_processors = [logits_processor]
+
+            selector = LLMSingleSelector.from_defaults(
+                llm=Settings.llm,
+                prompt_template_str=router_prompt.template
             )
 
             # Agent workflow
             self.progress.emit("Initializing router query engine...")
-            query_engine = RouterQueryEngine.from_defaults(
+            query_engine = RouterQueryEngine(
+                selector=selector,
                 query_engine_tools=[
                     precise_tool,
                     broad_tool
                 ],
-                llm=Settings.llm
+                llm=Settings.llm,
             )
             self.engine_ready.emit(query_engine)
         except Exception as e:
