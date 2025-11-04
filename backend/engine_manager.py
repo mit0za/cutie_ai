@@ -10,8 +10,6 @@ from PySide6.QtCore import QThread, Signal
 from ui.config import cfg
 from llama_index.core.postprocessor import SentenceTransformerRerank
 from llama_index.core.tools import QueryEngineTool
-from lmformatenforcer import JsonSchemaParser, CharacterLevelParserConfig
-from lmformatenforcer.integrations.llamacpp import build_llamacpp_logits_processor
 from llama_index.core.selectors import LLMSingleSelector
 from llama_index.core.prompts import PromptTemplate
 
