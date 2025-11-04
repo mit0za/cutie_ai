@@ -64,6 +64,14 @@ class EngineManager(QThread):
                 device="cuda"
                 )
             
+            self.progress.emit("Initializing reranker...")
+            reranker = SentenceTransformerRerank(
+                model="./models/bge-reranker-large",
+                top_n=5, # Precise Query
+                # top_n=10, # Broad Query
+                device="cuda"
+            )
+            
 
             # Set up vector database
             chroma_client = chromadb.PersistentClient(path="./chroma_db") 
@@ -89,36 +97,11 @@ class EngineManager(QThread):
                 self.progress.emit(f"Building new index from {len(data_paths)} folder(s)")
                 index = load_or_create_index(vector_store, storage_context, data_path=data_paths, callback=self.progress.emit)
 
-            self.progress.emit("Initializing reranker...")
-            reranker = SentenceTransformerRerank(
-                model="./models/bge-reranker-large",
-                top_n=3,
-                device="cuda"
-            )
-
-            # For precise query we want narrow down the search
-            precise_query_engine = CitationQueryEngine.from_args(
+            self.progress.emit("Initializing query engine...")
+            query_engine = CitationQueryEngine.from_args(
                 index,
-                similarity_top_k=10,
-                citation_chunk_size=256,
-                streaming=True,
-                verbose=True,
-                response_mode="compact"
-            )
-            #self.engine_ready.emit(precise_query_engine)
-
-            precise_tool = QueryEngineTool.from_defaults(
-                query_engine=precise_query_engine,
-                description=(
-                    "Best suited for short, factual, or well-defined questions where the answer "
-                ),
-            )
-
-            # For broad query we want to get as many relevant documents as possible
-            # then use reranker to filter them out
-            broad_query_engine = CitationQueryEngine.from_args(
-                index,
-                similarity_top_k=20,
+                # similarity_top_k=50, # Broad Query
+                similarity_top_k=10, # Precise Query
                 node_postprocessors=[reranker],
                 citation_chunk_size=512,
                 streaming=True,
@@ -126,79 +109,6 @@ class EngineManager(QThread):
                 response_mode="compact"
             )
 
-            broad_tool = QueryEngineTool.from_defaults(
-                query_engine=broad_query_engine,
-                description=(
-                    "Use this for open-ended, descriptive, or multi-fact questions that require "
-                )
-            )
-
-            router_prompt = PromptTemplate(
-                """You are a routing model.
-            You must choose which query engine to use, given the following options:
-
-            {choices}
-
-            Question: {query_str}
-
-            Return ONLY a valid JSON array with one element following this schema:
-            [
-            {{
-                "choice": <integer>,  # 0 for the first tool, 1 for the second, etc.
-                "reason": "<concise reason>"
-            }}
-            ]"""
-            )
-
-
-            router_schema = {
-                "type": "array",
-                "items": {
-                    "type": "object",
-                    "properties": {
-                        "choice": {"type": "integer"},
-                        "reason": {"type": "string"}
-                    },
-                    "required": ["choice", "reason"]
-                }
-            }
-
-            # Create the parsers
-            json_parser = JsonSchemaParser(router_schema)
-            char_config = CharacterLevelParserConfig(
-                alphabet=None, 
-                max_consecutive_whitespaces=2,
-                force_json_field_order=True,
-                max_json_array_length=5
-            )
-
-            json_parser = JsonSchemaParser(router_schema)
-            json_parser.config = char_config
-
-            # Build logits processor with both arguments
-            logits_processor = build_llamacpp_logits_processor(
-                json_parser,
-                json_parser
-            )
-
-            # Attach to llama instance
-            Settings.llm._logits_processors = [logits_processor]
-
-            selector = LLMSingleSelector.from_defaults(
-                llm=Settings.llm,
-                prompt_template_str=router_prompt.template
-            )
-
-            # Agent workflow
-            self.progress.emit("Initializing router query engine...")
-            query_engine = RouterQueryEngine(
-                selector=selector,
-                query_engine_tools=[
-                    precise_tool,
-                    broad_tool
-                ],
-                llm=Settings.llm,
-            )
             self.engine_ready.emit(query_engine)
         except Exception as e:
             self.error.emit(str(e))
