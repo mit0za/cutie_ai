@@ -16,24 +16,29 @@ class QueryWorker(QObject):
             response = self.engine.query(self.query_text)
             result_text = str(response).strip()
 
-            refs = []
+            refs_html = ""
             if hasattr(response, "source_nodes"):
-                for node in response.source_nodes:
+                refs_html += "<hr><b> References:</b><br>"
+                for i, node in enumerate(response.source_nodes, start=1):
                     meta = getattr(node, "metadata", {})
                     title = meta.get("file_name") or meta.get("source") or "Untitled"
-                    path = meta.get("file_path", None)
-                    refs.append((title, path))
+                    path = meta.get("file_path")
+                    text_excerpt = getattr(node, "text", "").strip()
+                    text_excerpt = text_excerpt[:300].replace("\n", " ") + ("..." if len(text_excerpt) > 300 else "")
 
-            final_output = result_text
-            if refs:
-                final_output += "<br><br><br><b>References:</b> "
-                final_output += "<details><summary>Show references</summary><ol>"
-                for title, path in refs:
                     if path and os.path.exists(path):
-                        final_output += f"<li><a href='file://{path}'>{title}</a></li>"
+                        refs_html += (
+                            f"<br><a href='file://{path}'>{i}. {title}</a>: "
+                            f"<span style='color:#999;'>Source:</span> {text_excerpt}<br>"
+                        )
                     else:
-                        final_output += f"<li>{title}</li>"
-                final_output += "</ol></details>"
+                        refs_html += (
+                            f"<br>{i}. {title}: "
+                            f"<span style='color:#999;'>Source:</span> {text_excerpt}<br>"
+                        )
+
+            # Combine everything
+            final_output = f"<div>{result_text}</div>{refs_html}"
 
             self.finished.emit(final_output)
 
