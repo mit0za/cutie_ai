@@ -1,9 +1,10 @@
 from qfluentwidgets import ScrollArea, setTheme, Theme, TextBrowser, TextEdit, FluentIcon, PrimaryToolButton, setCustomStyleSheet, InfoBar, InfoBarPosition
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QSizePolicy 
-from PySide6.QtCore import QTimer, Qt
+from PySide6.QtCore import QTimer, Qt, QUrl
 from ui.style_sheet import StyleSheet
 from ui.controller.engine_controller import EngineController
 from ui.controller.pushButton_controller import PushButtonController
+from PySide6.QtGui import QDesktopServices
 
 class ChatInterface(ScrollArea):
     """ Home interface """
@@ -26,8 +27,10 @@ class ChatInterface(ScrollArea):
         # chat display
         self.chat_display = TextBrowser()
         self.chat_display.setObjectName("textBrowser")
-        self.chat_display.setOpenExternalLinks(True)
-        self.chat_display.setReadOnly(True)
+        # self.chat_display.setOpenExternalLinks(True)
+        # self.chat_display.setReadOnly(True)
+        self.chat_display.setOpenLinks(False)
+        self.chat_display.anchorClicked.connect(self._open_link_with_desktop_services)
 
         # Style text browser
         chatDisplay_qss = "TextBrowser{background-color: transparent;} TextBrowser#textBrowser:focus {background-color: transparent;} TextBrowser#textBrowser:hover,TextBrowser#textBrowser:pressed{background-color: transparent;}"
@@ -87,3 +90,28 @@ class ChatInterface(ScrollArea):
         doc.setTextWidth(self.input_box.viewport().width())
         new_height = min(max(40, int(doc.size().height()) + 10), 200)
         self.input_box.setFixedHeight(new_height)
+
+    def _open_link_with_desktop_services(self, url: QUrl):
+        """Open docx and pdf with default application."""
+        try:
+            if not QDesktopServices.openUrl(url):
+                InfoBar.warning(
+                    title="Unable to Open File",
+                    content=f"Could not open: {url.toString()}",
+                    orient=Qt.Horizontal,
+                    isClosable=True,
+                    position=InfoBarPosition.TOP_RIGHT,
+                    duration=4000,
+                    parent=self
+                )
+        except Exception as e:
+            InfoBar.error(
+                title="Error Opening File",
+                content=str(e),
+                orient=Qt.Horizontal,
+                isClosable=True,
+                position=InfoBarPosition.TOP_RIGHT,
+                duration=6000,
+                parent=self
+            )
+
