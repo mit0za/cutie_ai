@@ -28,13 +28,13 @@ class QueryWorker(QObject):
 
                     if path and os.path.exists(path):
                         refs_html += (
-                            f"<br><a href='file://{path}'>{i}. {title}</a>: "
-                            f"<span style='color:#999;'>Source:</span> {text_excerpt}<br>"
+                            f"<br><a href='file://{path}'>{i}. {title}</a> "
+                            f"<span style='color:#999;'></span> {text_excerpt}<br>"
                         )
                     else:
                         refs_html += (
                             f"<br>{i}. {title}: "
-                            f"<span style='color:#999;'>Source:</span> {text_excerpt}<br>"
+                            f"<span style='color:#999;'></span> {text_excerpt}<br>"
                         )
 
             # Combine everything
