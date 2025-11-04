@@ -9,8 +9,6 @@ from llama_index.core.query_engine import CitationQueryEngine, RetrieverQueryEng
 from PySide6.QtCore import QThread, Signal
 from ui.config import cfg
 from llama_index.core.postprocessor import SentenceTransformerRerank
-from llama_index.core.tools import QueryEngineTool
-from llama_index.core.selectors import LLMSingleSelector
 from llama_index.core.prompts import PromptTemplate
 
 def storage_graph(persist_dir="./storageContext", vector_store=None):
@@ -42,7 +40,9 @@ class EngineManager(QThread):
             Settings.llm = LlamaCPP(
                 model_path="models/Meta-Llama-3.1-8B-Instruct-Q6_K_L.gguf",
                 temperature=0.5,
-                max_new_tokens=512,
+                max_new_tokens=256,
+                # max_new_tokens=512,
+                # max_new_tokens=1024,
                 context_window=8192,
                 model_kwargs={
                     "n_gpu_layers": -1,
@@ -65,7 +65,7 @@ class EngineManager(QThread):
             self.progress.emit("Initializing reranker...")
             reranker = SentenceTransformerRerank(
                 model="./models/bge-reranker-large",
-                top_n=5, # Precise Query
+                top_n=3, # Precise Query
                 # top_n=10, # Broad Query
                 device="cuda"
             )
