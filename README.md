@@ -1,32 +1,29 @@
-I highly set up a virtual python enviroment because we are in a development phrase which mean<br>
 # Dependencies
 
 **Python Libraries**
 ```
 pip install -r requirements.txt
 ```
-
-**[Llama3.1:8b](https://ollama.com/library/llama3.1:8b)**
+# LLM
+**Llama-3.1:8B GGUF**
 ```
-ollama pull llama3.1:8b
-```
-
-**[Embed Model](https://ollama.com/library/nomic-embed-text:v1.5)**
-```
-ollama pull nomic-embed-text:v1.5
+https://huggingface.co/bartowski/Meta-Llama-3.1-8B-Instruct-GGUF
 ```
 
-**[Rerank model](https://ollama.com/linux6200/bge-reranker-v2-m3/tags)**
+**Embedding Model**
 ```
-ollama pull linux6200/bge-reranker-v2-m3
+https://huggingface.co/Qwen/Qwen3-Embedding-0.6B
 ```
 
-# Note
-As of 11/08/25, Qwen3-Embedding-0.6B is the number 4 model on the Embedding Leaderboard. The top three models are: <br>
-1. gemini-embedding-001 <br>
-2. Qwen3-Embedding-8B <br>
-3. Qwen3-Embedding-4B" <br>
+**Reranking Model**
+```
+https://huggingface.co/BAAI/bge-reranker-large
+```
 
-
-# Embedding 
-Took me 3h9m19s
+# How to set up LLM
+1. Create models directory<br>
+Create a folder called ```models``` and put the raw model file ```Meta-Llama-3.1-8B-Instruct-Q6_K_L.gguf``` inside it.
+2. Set up embedding model<br>
+Inside the ```models``` directory, create a folder name ```qwen3-embedding-0.6b``` and place the embedding model files there.
+3. Set up the reranking model<br>
+Inside the ```models``` directory, create a folder named ```bge-reranker-large``` and place the reranking model files there.
