@@ -17,21 +17,46 @@ class MetaDataExtractor(BaseExtractor):
             title = filename
 
             # Check if it followed the standard of ([year/month/date] [p2]) etc...
-            if parts and parts[0].isdigit() and len(parts[0]) == 8:
-                year = int(parts[0][:4])
+            if parts[0].isdigit() and len(parts[0]) == 8:
 
-                # Find article id
-                id_index = next((i for i, p in enumerate(parts[2:], start=2) if p.isdigit()), None)
+                # Get year
+                year = ""
+                count = 0
+                for char in parts[0]:
+                    if count >= 4:
+                        break
+                    year += char
+                    count += 1
+                # type cast to int
+                year = int(year)
+
+                # Check for article id
+                id_index = None
+                for i in range(2, len(parts)):
+                    if parts[i].isdigit():
+                        id_index = i
+                        break
 
                 if id_index is not None:
-                    source = " ".join(parts[2:id_index])
-                    article_id = parts[id_index]
-                    title = " ".join(parts[id_index + 1:]).capitalize()
-                else:
-                    source = parts[2] if len(parts) > 2 else "Unknown"
+                    source = " "
+                    for i in range(2, id_index):
+                        # Add each word before the article id
+                        source += parts[i]
+                        source += " "
 
+                    # Get article ID
+                    article_id = parts[id_index]
+
+                    # Get title
+                    title = " "
+                    for i in range(id_index + 1, len(parts)):
+                        title += parts[i]
+                        title += " "
+
+            # If it doesn't follow the naming convention
+            # then we'll use the entire length as a name
             else:
-                title = filename.capitalize()
+                title = filename
 
             metadata_list.append({
                 "year": year,
@@ -41,4 +66,3 @@ class MetaDataExtractor(BaseExtractor):
             })
 
         return metadata_list
-
