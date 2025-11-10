@@ -30,7 +30,7 @@ class ChatInterface(ScrollArea):
         # self.chat_display.setOpenExternalLinks(True)
         # self.chat_display.setReadOnly(True)
         self.chat_display.setOpenLinks(False)
-        self.chat_display.anchorClicked.connect(self._open_link_with_desktop_services)
+        self.chat_display.anchorClicked.connect(self.open_link_with_desktop_services)
 
         # Style text browser
         chatDisplay_qss = "TextBrowser{background-color: transparent;} TextBrowser#textBrowser:focus {background-color: transparent;} TextBrowser#textBrowser:hover,TextBrowser#textBrowser:pressed{background-color: transparent;}"
@@ -91,7 +91,7 @@ class ChatInterface(ScrollArea):
         new_height = min(max(40, int(doc.size().height()) + 10), 200)
         self.input_box.setFixedHeight(new_height)
 
-    def _open_link_with_desktop_services(self, url: QUrl):
+    def open_link_with_desktop_services(self, url: QUrl):
         """Open docx and pdf with default application."""
         try:
             if not QDesktopServices.openUrl(url):
