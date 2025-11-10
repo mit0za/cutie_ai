@@ -1,15 +1,21 @@
 from ui.main_window import MainWindow
 from PySide6.QtWidgets import QApplication
-from backend.engine_manager import build_query_engine
 import sys
 
-# Set up UI
-app = QApplication(sys.argv) # Core of QT
+def main():
+    # Create core Qt app
+    app = QApplication(sys.argv) 
 
-window = MainWindow()
-window.show() # window will not show unless specify
+    # Init main window
+    window = MainWindow()
+    window.show() # window will not show unless specify
 
-sys.exit(app.exec())
+    # start the event loop
+    sys.exit(app.exec())
+
+if __name__ == "__main__":
+    # freeze_support()
+    main()
 
 # query = "The new observatory that was built in Adelaide University grounds. How much was it expected to cost?"
 # query = "Tell me about what happen from 1854 to 1870."

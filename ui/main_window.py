@@ -1,80 +1,77 @@
-from PySide6.QtWidgets import (QApplication, QMainWindow, QVBoxLayout, QWidget, QHBoxLayout, QMessageBox)
-from PySide6.QtCore import QTimer, QThread
-from backend.engine_worker import EngineWorker
-from ui.widget import ChatBox, ChatDisplay, LoadingDialog
+from PySide6.QtWidgets import QApplication
+from qfluentwidgets import FluentWindow, SystemThemeListener, isDarkTheme, FluentIcon, NavigationItemPosition
+from PySide6.QtGui import QIcon
+from PySide6.QtCore import QTimer
+from ui.config import cfg
+from ui.signal_bus import signalBus
+from ui.view.chat_interface import ChatInterface
+from ui.view.settings_interface import SettingsInterface
 
-class MainWindow(QMainWindow):
+class MainWindow(FluentWindow):
 
     def __init__(self):
         super().__init__()
-        self.query_engine = None
-        self.setWindowTitle("Cutie AI")
+
+        # create system theme listener
+        self.themeListener = SystemThemeListener(self)
+
+        # enable acrylic effect
+        self.navigationInterface.setAcrylicEnabled(True)
+
+        # create side bar interface
+        self.chatInterface = ChatInterface(self)
+        self.settingInterface = SettingsInterface(self)
+
+        
+        self.connectSignalToSlot()
+
+        self.themeListener.start()
+
+        # add interface to side bar
+        self.initSidebar()
+        self.initWindow()
 
 
-        # Create container
-        container = QWidget()
-        #Set it in the middle of the screen
-        self.setCentralWidget(container)
+    def initSidebar(self):
+        """ add side bar"""
+        self.addSubInterface(self.chatInterface, FluentIcon.CHAT, self.tr("Chat"))
+        self.navigationInterface.addSeparator()
 
-        # Use horizontal layout (will add left_layout later)
-        main_layout = QHBoxLayout(container)
+        # pos = NavigationItemPosition.SCROLL
+        self.addSubInterface(self.settingInterface, FluentIcon.SETTING, self.tr("Settings"), NavigationItemPosition.BOTTOM)
 
-        # Right side
-        right_layout = QVBoxLayout()
-        right_widget = QWidget()
-        right_widget.setLayout(right_layout)
-        main_layout.addWidget(right_widget)
 
-        # Chat display
-        self.chat_display = ChatDisplay()
-        right_layout.addWidget(self.chat_display, stretch=1) # Add chat display
+    def initWindow(self):
+        """Dictate how the app started"""
 
-        self.chat_box = ChatBox()
-        right_layout.addWidget(self.chat_box) # Add chat_box
-        self.chat_box.send_button.clicked.connect(self.handle_send) # Connect chat_box to handle_send func
+        # Size
+        self.resize(960, 780)
+        self.setMinimumWidth(760)
+        
+        # Title
+        self.setWindowTitle('Cutie AI')
 
-        self.loading_dialog = LoadingDialog(self) # Loading pop up
+        self.setMicaEffectEnabled(cfg.get(cfg.micaEnabled))
 
-        self.thread = QThread() # Create new background thread
-        self.worker = EngineWorker() # Create worker obj
+        desktop = QApplication.screens()[0].availableGeometry()
+        w, h = desktop.width(), desktop.height()
+        # Move app to the middle of the screen
+        self.move(w//2 - self.width()//2, h//2 - self.height()//2)
+        self.show()
+        QApplication.processEvents()
 
-        self.worker.moveToThread(self.thread) # Attach worker to this thread
-        self.thread.started.connect(self.worker.run) # once thread starts, calls "worker.run"
-
-        """Either one of these will trigger which then will alert the UI"""
-        self.worker.finished.connect(self.on_engine_ready) 
-        self.worker.error.connect(self.on_engine_error)
-
-        # Clean up
-        self.worker.finished.connect(self.thread.quit) # stop thread once finished
-        self.worker.finished.connect(self.worker.deleteLater) # free worker
-        self.thread.finished.connect(self.thread.deleteLater) # free thread
-
-        self.thread.start()
-        self.loading_dialog.exec()
-
-    def on_engine_ready(self, engine):
-        self.query_engine = engine
-        self.loading_dialog.accept()
-
-    def on_engine_error(self, message):
-        self.loading_dialog.reject()
-        QMessageBox.critical(self, "Error", f"Failed to load engine:\n{message}")
+    def closeEvent(self, e):
+        self.themeListener.terminate()
+        self.themeListener.deleteLater()
+        return super().closeEvent(e)
     
-    def handle_send(self):
-        query = self.chat_box.input_widget.toPlainText().strip()
-        if not query or not self.query_engine:
-            return
-        self.chat_box.input_widget.clear()
+    def _onThemeChangedFinished(self):
+        super()._onThemeChangedFinished()
 
-        self.chat_display.append(f"<b>You:</b> {query}")
-        resp = self.query_engine.query(query)
-        self.chat_display.append(f"<b>Assistant:</b> {resp}")
+        # retry
+        if self.isMicaEffectEnabled():
+            QTimer.singleShot(100, lambda: self.windowEffect.setMicaEffect(self.winId(), isDarkTheme()))
 
+    def connectSignalToSlot(self):
+        signalBus.micaEnableChanged.connect(self.setMicaEffectEnabled)
 
-
-if __name__ == "__main__":
-    app = QApplication([])
-    window = MainWindow()
-    window.show()
-    app.exec()
