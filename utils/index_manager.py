@@ -74,7 +74,7 @@ def load_or_create_index(vector_store, storage_context, data_path: Union[str, Li
         log(f"Pipeline produced {len(nodes)} nodes")
 
         if nodes:
-            log(f"Sample metadata from first node: {nodes[0].metadata.get("excerpt_keywords", []) [:10]}")
+            log(f"Sample metadata from first node: {nodes[0].metadata.get('excerpt_keywords', []) [:10]}")
         
         log("Starting VectoreStoreIndex")
         index = VectorStoreIndex(nodes, storage_context=storage_context, show_progress=True)
