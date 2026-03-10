@@ -63,7 +63,7 @@ def load_or_create_index(vector_store, storage_context, data_path: Union[str, Li
         # Ingestion pipeline
         pipeline = IngestionPipeline(
             transformations=[
-                SentenceSplitter(chunk_size=512, chunk_overlap=50, include_metadata=True),
+                SentenceSplitter(chunk_size=1024, chunk_overlap=256, include_metadata=True),
                 MetaDataExtractor()
             ]
         )
