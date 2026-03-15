@@ -98,6 +98,31 @@ class SettingsInterface(ScrollArea):
         #     parent=self.llmSetting
         # )
 
+        self.retrievalGroup = SettingCardGroup(
+            self.tr("Retrieval Parameters"), self.scrollWidget)
+        self.topKCard = RangeSettingCard(
+            cfg.similarity_top_k,
+            FluentIcon.SEARCH,
+            self.tr("Similarity Top-K"),
+            self.tr("Broad search: Number of chunks initially pulled from the vector database."),
+            parent=self.retrievalGroup
+        )
+        self.topNCard = RangeSettingCard(
+            cfg.top_n,
+            FluentIcon.FILTER,
+            self.tr("Reranker Top-N"),
+            self.tr("Precise filter: Number of highly relevant chunks passed to the LLM."),
+            parent=self.retrievalGroup
+        )
+        self.chunkSizeCard = OptionsSettingCard(
+            cfg.citation_chunk_size,
+            FluentIcon.ALIGNMENT,
+            self.tr("Citation Chunk Size"),
+            self.tr("Size of text blocks used to generate citations."),
+            texts= ["128", "256", "512", "1024", "2048"],
+            parent=self.retrievalGroup
+        )
+
         self.__initWidget()
 
     def __initWidget(self):
@@ -140,6 +165,11 @@ class SettingsInterface(ScrollArea):
         self.llmSetting.addSettingCard(self.maxTokensCard)
         # self.llmSetting.addSettingCard(self.verboseCard)
 
+        # add retrieval to settings card
+        self.retrievalGroup.addSettingCard(self.topKCard)
+        self.retrievalGroup.addSettingCard(self.topNCard)
+        self.retrievalGroup.addSettingCard(self.chunkSizeCard)
+
         # add setting card group to layout
         self.expandLayout.setSpacing(28)
         self.expandLayout.setContentsMargins(36, 10, 36, 0)
@@ -147,6 +177,7 @@ class SettingsInterface(ScrollArea):
         self.expandLayout.addWidget(self.dataGroup)
         self.expandLayout.addWidget(self.personalGroup)
         self.expandLayout.addWidget(self.llmSetting)
+        self.expandLayout.addWidget(self.retrievalGroup)
 
 
     def __showRestartTooltip(self):

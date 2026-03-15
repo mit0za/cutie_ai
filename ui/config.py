@@ -26,7 +26,7 @@ class Config(QConfig):
 
     # QueryEngine Settings
     similarity_top_k = RangeConfigItem("Retrieval", "SimilarityTopK", 25, RangeValidator(1,1000))
-    citation_chunk_size = RangeConfigItem("Retrieval", "CitationChunkSize", 512, RangeValidator(128, 2048))
+    citation_chunk_size = OptionsConfigItem("Retrieval", "CitationChunkSize", 512, OptionsValidator([128, 256, 512, 1024, 2048]))
 
 YEAR = 2025
 AUTHOR = "Ethan Yin"
