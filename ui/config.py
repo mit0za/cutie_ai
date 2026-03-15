@@ -22,10 +22,10 @@ class Config(QConfig):
     verbose = ConfigItem("LLM", "Verbose", False, BoolValidator())
 
     # Reranker Settings
-    top_n = RangeConfigItem("Retrieval", "TopN", 5, RangeValidator(1,1000))
+    top_n = RangeConfigItem("Retrieval", "TopN", 5, RangeValidator(1,100))
 
     # QueryEngine Settings
-    similarity_top_k = RangeConfigItem("Retrieval", "SimilarityTopK", 25, RangeValidator(1,1000))
+    similarity_top_k = RangeConfigItem("Retrieval", "SimilarityTopK", 25, RangeValidator(1,100))
     citation_chunk_size = OptionsConfigItem("Retrieval", "CitationChunkSize", 512, OptionsValidator([128, 256, 512, 1024, 2048]))
 
 YEAR = 2025
