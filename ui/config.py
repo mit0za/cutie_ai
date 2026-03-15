@@ -1,5 +1,6 @@
 import sys
 from qfluentwidgets import QConfig, ConfigItem, BoolValidator, OptionsConfigItem, OptionsValidator, RangeConfigItem, RangeValidator, Theme, qconfig, FolderListValidator
+from pathlib import Path
 
 def isWin11():
     return sys.platform == 'win32' and sys.getwindowsversion().build >= 22000
@@ -32,4 +33,17 @@ AUTHOR = "Ethan Yin"
 
 cfg = Config()
 cfg.themeMode.value = Theme.AUTO
-qconfig.load("app/config/config.json", cfg)
+
+# Default path
+config_file_path = Path("app/config/config.json")
+
+# Check to see if config folder exist
+config_file_path.parent.mkdir(parents=True, exist_ok=True)
+
+# load config
+qconfig.load(config_file_path, cfg)
+
+# If one doesn't exist then generate one 
+if not config_file_path.exists():
+    qconfig.save()
+    print("Generate new config.json file with default settings.")
