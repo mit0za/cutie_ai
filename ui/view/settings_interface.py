@@ -66,15 +66,19 @@ class SettingsInterface(ScrollArea):
             ],
             parent=self.personalGroup
         )
-        self.tempCard = OptionsSettingCard(
+
+        # LLM SETTINGS
+        self.llmSetting = SettingCardGroup(
+            self.tr("LLM Settings"), self.scrollWidget)
+        self.temperatureCard = OptionsSettingCard(
             cfg.temperature,
             FluentIcon.CALORIES,
-            self.tr("LLLLLLLLLLLLLLLLLLM"),
-            self.tr("Change the size of widgets and fonts"),
+            self.tr("Temperature"),
+            self.tr("Change LLM creativity. Lower values force strict factual answers."),
             texts=[
                 "1", "2", "3", "4", "5", "6", "7", "8", "9"
             ],
-            parent=self.personalGroup
+            parent=self.llmSetting
         )
 
         self.__initWidget()
@@ -105,15 +109,17 @@ class SettingsInterface(ScrollArea):
     def __initLayout(self):
         self.settingLabel.move(36, 30)
 
-        # add card to data group
+        # add data group to settings
         self.dataGroup.addSettingCard(self.dataPicker)
 
-        # add cards to personalize group
+        # add personalize group to settings
         self.personalGroup.addSettingCard(self.micaCard)
         self.personalGroup.addSettingCard(self.themeCard)
         self.personalGroup.addSettingCard(self.themeColorCard)
         self.personalGroup.addSettingCard(self.zoomCard)
-        self.personalGroup.addSettingCard(self.tempCard)
+
+        # add llm to settings card
+        self.llmSetting.addSettingCard(self.temperatureCard)
 
         # add setting card group to layout
         self.expandLayout.setSpacing(28)
@@ -121,6 +127,7 @@ class SettingsInterface(ScrollArea):
         # Add data group and personalGroup to the setting page
         self.expandLayout.addWidget(self.dataGroup)
         self.expandLayout.addWidget(self.personalGroup)
+        self.expandLayout.addWidget(self.llmSetting)
 
 
     def __showRestartTooltip(self):
