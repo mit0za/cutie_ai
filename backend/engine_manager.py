@@ -39,10 +39,8 @@ class EngineManager(QThread):
             ## Add LLM Model ##
             Settings.llm = LlamaCPP(
                 model_path="models/Meta-Llama-3.1-8B-Instruct-Q6_K_L.gguf",
-                temperature=0.5,
-                max_new_tokens=256,
-                # max_new_tokens=512,
-                # max_new_tokens=1024,
+                temperature=cfg.temperature.value,
+                max_new_tokens=cfg.max_new_tokens.value,
                 context_window=8192,
                 model_kwargs={
                     "n_gpu_layers": -1,
@@ -52,7 +50,7 @@ class EngineManager(QThread):
                     "use_mmap": True,
                     "use_mlock": True,
                 },
-                verbose=False
+                verbose=cfg.verbose.value
             )
             self.llm_ready.emit()
 
@@ -65,8 +63,7 @@ class EngineManager(QThread):
             self.progress.emit("Initializing reranker...")
             reranker = SentenceTransformerRerank(
                 model="./models/bge-reranker-large",
-                top_n=3, # Precise Query
-                # top_n=10, # Broad Query
+                top_n=cfg.top_n.value,
                 device="cuda"
             )
             
@@ -98,10 +95,9 @@ class EngineManager(QThread):
             self.progress.emit("Initializing query engine...")
             query_engine = CitationQueryEngine.from_args(
                 index,
-                # similarity_top_k=50, # Broad Query
-                similarity_top_k=10, # Precise Query
+                similarity_top_k=cfg.similarity_top_k.value,
                 node_postprocessors=[reranker],
-                citation_chunk_size=512,
+                citation_chunk_size=cfg.citation_chunk_size.value,
                 streaming=True,
                 verbose=True,
                 response_mode="compact"
