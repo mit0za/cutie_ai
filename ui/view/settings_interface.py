@@ -66,6 +66,16 @@ class SettingsInterface(ScrollArea):
             ],
             parent=self.personalGroup
         )
+        self.tempCard = OptionsSettingCard(
+            cfg.temperature,
+            FluentIcon.CALORIES,
+            self.tr("LLLLLLLLLLLLLLLLLLM"),
+            self.tr("Change the size of widgets and fonts"),
+            texts=[
+                "1", "2", "3", "4", "5", "6", "7", "8", "9"
+            ],
+            parent=self.personalGroup
+        )
 
         self.__initWidget()
 
@@ -103,6 +113,7 @@ class SettingsInterface(ScrollArea):
         self.personalGroup.addSettingCard(self.themeCard)
         self.personalGroup.addSettingCard(self.themeColorCard)
         self.personalGroup.addSettingCard(self.zoomCard)
+        self.personalGroup.addSettingCard(self.tempCard)
 
         # add setting card group to layout
         self.expandLayout.setSpacing(28)
