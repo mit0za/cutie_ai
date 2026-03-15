@@ -1,5 +1,5 @@
 from qfluentwidgets import (ScrollArea, ExpandLayout, ScrollArea, setTheme, setThemeColor, isDarkTheme,  
-                            SettingCardGroup, SwitchSettingCard, FluentIcon, OptionsSettingCard, CustomColorSettingCard, InfoBar, FolderListSettingCard)
+                            SettingCardGroup, SwitchSettingCard, FluentIcon, OptionsSettingCard, CustomColorSettingCard, InfoBar, FolderListSettingCard, RangeSettingCard)
 from PySide6.QtWidgets import QWidget, QLabel
 from PySide6.QtCore import Qt, Signal, QStandardPaths
 from ui.config import cfg, isWin11
@@ -80,6 +80,23 @@ class SettingsInterface(ScrollArea):
             ],
             parent=self.llmSetting
         )
+        self.maxTokensCard = OptionsSettingCard(
+            cfg.max_new_tokens,
+            FluentIcon.DOCUMENT,
+            self.tr("Max New Tokens"),
+            self.tr("Maximum length of the generated AI response."),
+            texts= [
+                "128", "256", "512", "1024", "2048", "4096", "8192"
+            ],
+            parent=self.llmSetting
+        )
+        # self.verboseCard = SwitchSettingCard(
+        #     FluentIcon.COMMAND_PROMPT,
+        #     self.tr("Verbose Logging"),
+        #     self.tr("Print detailed generation steps to the console for debugging."),
+        #     cfg.verbose,
+        #     parent=self.llmSetting
+        # )
 
         self.__initWidget()
 
@@ -120,6 +137,8 @@ class SettingsInterface(ScrollArea):
 
         # add llm to settings card
         self.llmSetting.addSettingCard(self.temperatureCard)
+        self.llmSetting.addSettingCard(self.maxTokensCard)
+        # self.llmSetting.addSettingCard(self.verboseCard)
 
         # add setting card group to layout
         self.expandLayout.setSpacing(28)

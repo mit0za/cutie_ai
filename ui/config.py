@@ -17,8 +17,8 @@ class Config(QConfig):
     blurRadius  = RangeConfigItem("Material", "AcrylicBlurRadius", 15, RangeValidator(0, 40))
 
     # LLM Settings
-    temperature = OptionsConfigItem("LLM", "Temperature", 0.1, OptionsValidator([0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]), restart=True)
-    max_new_tokens = RangeConfigItem("LLM", "MaxNewTokens", 1024, RangeValidator(128,8129))
+    temperature = OptionsConfigItem("LLM", "Temperature", 0.1, OptionsValidator([0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]))
+    max_new_tokens = OptionsConfigItem("LLM", "MaxNewTokens", 512, OptionsValidator([128, 256, 512, 1024, 2048, 4096, 8192]))
     verbose = ConfigItem("LLM", "Verbose", False, BoolValidator())
 
     # Reranker Settings
