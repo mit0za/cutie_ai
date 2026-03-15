@@ -15,6 +15,18 @@ class Config(QConfig):
     # Material
     blurRadius  = RangeConfigItem("Material", "AcrylicBlurRadius", 15, RangeValidator(0, 40))
 
+    # LLM Settings
+    temperature = ConfigItem("LLM", "Temperature", 0.1)
+    max_new_tokens = RangeConfigItem("LLM", "MaxNewTokens", 1024, RangeValidator(128,8129))
+    verbose = ConfigItem("LLM", "Verbose", False, BoolValidator())
+
+    # Reranker Settings
+    top_n = RangeConfigItem("Retrieval", "TopN", 5, RangeValidator(1,1000))
+
+    # QueryEngine Settings
+    similarity_top_k = RangeConfigItem("Retrieval", "SimilarityTopK", 25, RangeValidator(1,1000))
+    citation_chunk_size = RangeConfigItem("Retrieval", "CitationChunkSize", 512, RangeValidator(128, 2048))
+
 YEAR = 2025
 AUTHOR = "Ethan Yin"
 
