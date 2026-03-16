@@ -152,5 +152,3 @@ It starts EngineManager, waits for retriever readiness, runs retrieval, and prin
 
 - [DESIGN_PURE_RETRIEVAL_AND_SEARCH_VIEW.md](./DESIGN_PURE_RETRIEVAL_AND_SEARCH_VIEW.md) - Design doc
 - [CHANGELOG_MODIFICATIONS.md](./CHANGELOG_MODIFICATIONS.md) - Chinese version
-
-Feel free to reach out if you have questions or suggestions.

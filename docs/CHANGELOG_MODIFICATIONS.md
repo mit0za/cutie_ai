@@ -152,5 +152,3 @@ python test_retrieval.py [查询词]
 
 - [DESIGN_PURE_RETRIEVAL_AND_SEARCH_VIEW.md](./DESIGN_PURE_RETRIEVAL_AND_SEARCH_VIEW.md) - 设计文档
 - [CHANGELOG_MODIFICATIONS_EN.md](./CHANGELOG_MODIFICATIONS_EN.md) - 英文版说明
-
-如有问题或建议，欢迎直接提～
