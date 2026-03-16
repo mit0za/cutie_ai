@@ -4,7 +4,9 @@ from PySide6.QtGui import QIcon
 from PySide6.QtCore import QTimer
 from ui.config import cfg
 from ui.signal_bus import signalBus
+from ui.controller.engine_controller import EngineController
 from ui.view.chat_interface import ChatInterface
+from ui.view.search_interface import SearchInterface
 from ui.view.settings_interface import SettingsInterface
 
 class MainWindow(FluentWindow):
@@ -18,9 +20,15 @@ class MainWindow(FluentWindow):
         # enable acrylic effect
         self.navigationInterface.setAcrylicEnabled(True)
 
+        # shared engine controller (for Chat + Document Search)
+        self.engine_controller = EngineController(self)
+
         # create side bar interface
-        self.chatInterface = ChatInterface(self)
+        self.chatInterface = ChatInterface(self, self.engine_controller)
+        self.searchInterface = SearchInterface(self, self.engine_controller)
         self.settingInterface = SettingsInterface(self)
+
+        self.engine_controller.start()
 
         
         self.connectSignalToSlot()
@@ -35,6 +43,7 @@ class MainWindow(FluentWindow):
     def initSidebar(self):
         """ add side bar"""
         self.addSubInterface(self.chatInterface, FluentIcon.CHAT, self.tr("Chat"))
+        self.addSubInterface(self.searchInterface, FluentIcon.SEARCH, self.tr("Document Search"))
         self.navigationInterface.addSeparator()
 
         # pos = NavigationItemPosition.SCROLL

@@ -9,7 +9,7 @@ from PySide6.QtGui import QDesktopServices
 class ChatInterface(ScrollArea):
     """ Home interface """
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, engine_controller=None):
         super().__init__(parent=parent)
         self.setObjectName("chatInterface")
         setTheme(Theme.DARK)
@@ -67,6 +67,7 @@ class ChatInterface(ScrollArea):
         # self.push_button = PrimaryPushButton(FluentIcon.UP)
         self.push_button.setFixedHeight(45)
         self.push_button.setEnabled(False)
+        self.push_button.setToolTip("等待引擎初始化完成后可用")
         
         # Add input_layout to horizontal layout
         input_layout.addWidget(self.push_button)
@@ -74,9 +75,11 @@ class ChatInterface(ScrollArea):
         # add horizontal layout to main layout
         main_layout.addLayout(input_layout)
 
-        ## LLM set up ##
-        self.engine_controller = EngineController(self)
-        self.engine_controller.start()
+        ## LLM set up (engine_controller passed from MainWindow) ##
+        self.engine_controller = engine_controller or EngineController(self)
+        if not engine_controller:
+            self.engine_controller.start()
+        self.engine_controller.chat_ready.connect(self._on_chat_ready)
 
         ## PushButton controller ##
         self.push_button_controller = PushButtonController(self)
@@ -84,6 +87,11 @@ class ChatInterface(ScrollArea):
         self.push_button.clicked.connect(self.push_button_controller.on_clicked)
         self.push_button_controller.attach_engine(self.engine_controller)
 
+
+    def _on_chat_ready(self):
+        """Enable send button when engine is ready."""
+        self.push_button.setEnabled(True)
+        self.push_button.setToolTip("发送消息")
 
     def autoResize(self):
         doc = self.input_box.document()

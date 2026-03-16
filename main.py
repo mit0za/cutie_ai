@@ -1,8 +1,12 @@
 from ui.main_window import MainWindow
 from PySide6.QtWidgets import QApplication
 import sys
+import os
 
 def main():
+    # Ensure working directory is project root (for ./data, ./models, etc.)
+    app_dir = os.path.dirname(os.path.abspath(__file__))
+    os.chdir(app_dir)
     # Create core Qt app
     app = QApplication(sys.argv) 
 

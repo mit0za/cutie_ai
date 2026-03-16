@@ -1,19 +1,25 @@
 from qfluentwidgets import InfoBar, InfoBarPosition
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import Qt, QTimer, Signal, QObject
 from backend.engine_manager import EngineManager
 from ui.config import cfg
 
-class EngineController:
+
+class EngineController(QObject):
     """ This is where we move all engine related stuff here so it's more modular and clean in chat_interface.py"""
+    chat_ready = Signal()  # Emitted when engine ready, for ChatInterface to enable send button
+
     def __init__(self, parent):
-        self.parent = parent # So it will know wher eto attach toast to (in our case it's chat_interface)
+        super().__init__(parent)
+        self.parent = parent  # For InfoBar parent (MainWindow)
         self.engine_thread = EngineManager()
         self.engine_info = None
         self.query_engine = None
+        self.retriever = None  # Pure semantic retriever (no LLM), for Document Search
 
         # Connect to signals
         self.engine_thread.progress.connect(self.on_progress)
         self.engine_thread.engine_ready.connect(self.on_engine_ready)
+        self.engine_thread.retriever_ready.connect(self.on_retriever_ready)
         self.engine_thread.error.connect(self.on_error)
         self.engine_thread.llm_ready.connect(self.on_llm_ready)
         self.engine_thread.db_ready.connect(self.on_db_ready)
@@ -39,7 +45,7 @@ class EngineController:
 
     def on_engine_ready(self, engine):
         self.query_engine = engine
-        self.parent.push_button.setEnabled(True)
+        self.chat_ready.emit()
         InfoBar.success(
             title="Engine Ready",
             content="LLM engine is fully operational",
@@ -49,6 +55,10 @@ class EngineController:
             duration=5000,
             parent=self.parent
         )
+
+    def on_retriever_ready(self, retriever):
+        """Pure semantic retriever ready (no LLM) - for Document Search."""
+        self.retriever = retriever
 
     def on_error(self, error):
         InfoBar.error(
@@ -130,8 +140,11 @@ class EngineController:
             self.engine_thread.wait()
 
         # Create a new thread to start fresh
+        self.retriever = None
         self.engine_thread = EngineManager()
         self.engine_thread.progress.connect(self.on_progress)
+        self.engine_thread.engine_ready.connect(self.on_engine_ready)
+        self.engine_thread.retriever_ready.connect(self.on_retriever_ready)
         self.engine_thread.error.connect(self.on_error)
         self.engine_thread.llm_ready.connect(self.on_llm_ready)
         self.engine_thread.db_ready.connect(self.on_db_ready)
