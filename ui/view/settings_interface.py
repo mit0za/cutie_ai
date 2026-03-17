@@ -1,5 +1,5 @@
 from qfluentwidgets import (ScrollArea, ExpandLayout, ScrollArea, setTheme, setThemeColor, isDarkTheme,  
-                            SettingCardGroup, SwitchSettingCard, FluentIcon, OptionsSettingCard, CustomColorSettingCard, InfoBar, FolderListSettingCard)
+                            SettingCardGroup, SwitchSettingCard, FluentIcon, OptionsSettingCard, CustomColorSettingCard, InfoBar, FolderListSettingCard, RangeSettingCard)
 from PySide6.QtWidgets import QWidget, QLabel
 from PySide6.QtCore import Qt, Signal, QStandardPaths
 from ui.config import cfg, isWin11
@@ -67,6 +67,62 @@ class SettingsInterface(ScrollArea):
             parent=self.personalGroup
         )
 
+        # LLM SETTINGS
+        self.llmSetting = SettingCardGroup(
+            self.tr("LLM Settings"), self.scrollWidget)
+        self.temperatureCard = OptionsSettingCard(
+            cfg.temperature,
+            FluentIcon.CALORIES,
+            self.tr("Temperature"),
+            self.tr("Change LLM creativity. Lower values force strict factual answers."),
+            texts=[
+                "1", "2", "3", "4", "5", "6", "7", "8", "9"
+            ],
+            parent=self.llmSetting
+        )
+        self.maxTokensCard = OptionsSettingCard(
+            cfg.max_new_tokens,
+            FluentIcon.DOCUMENT,
+            self.tr("Max New Tokens"),
+            self.tr("Maximum length of the generated AI response."),
+            texts= [
+                "128", "256", "512", "1024", "2048", "4096", "8192"
+            ],
+            parent=self.llmSetting
+        )
+        # self.verboseCard = SwitchSettingCard(
+        #     FluentIcon.COMMAND_PROMPT,
+        #     self.tr("Verbose Logging"),
+        #     self.tr("Print detailed generation steps to the console for debugging."),
+        #     cfg.verbose,
+        #     parent=self.llmSetting
+        # )
+
+        self.retrievalGroup = SettingCardGroup(
+            self.tr("Retrieval Parameters"), self.scrollWidget)
+        self.topKCard = RangeSettingCard(
+            cfg.similarity_top_k,
+            FluentIcon.SEARCH,
+            self.tr("Similarity Top-K"),
+            self.tr("Broad search: Number of chunks initially pulled from the vector database."),
+            parent=self.retrievalGroup
+        )
+        self.topNCard = RangeSettingCard(
+            cfg.top_n,
+            FluentIcon.FILTER,
+            self.tr("Reranker Top-N"),
+            self.tr("Precise filter: Number of highly relevant chunks passed to the LLM."),
+            parent=self.retrievalGroup
+        )
+        self.chunkSizeCard = OptionsSettingCard(
+            cfg.citation_chunk_size,
+            FluentIcon.ALIGNMENT,
+            self.tr("Citation Chunk Size"),
+            self.tr("Size of text blocks used to generate citations."),
+            texts= ["128", "256", "512", "1024", "2048"],
+            parent=self.retrievalGroup
+        )
+
         self.__initWidget()
 
     def __initWidget(self):
@@ -95,14 +151,24 @@ class SettingsInterface(ScrollArea):
     def __initLayout(self):
         self.settingLabel.move(36, 30)
 
-        # add card to data group
+        # add data group to settings
         self.dataGroup.addSettingCard(self.dataPicker)
 
-        # add cards to personalize group
+        # add personalize group to settings
         self.personalGroup.addSettingCard(self.micaCard)
         self.personalGroup.addSettingCard(self.themeCard)
         self.personalGroup.addSettingCard(self.themeColorCard)
         self.personalGroup.addSettingCard(self.zoomCard)
+
+        # add llm to settings card
+        self.llmSetting.addSettingCard(self.temperatureCard)
+        self.llmSetting.addSettingCard(self.maxTokensCard)
+        # self.llmSetting.addSettingCard(self.verboseCard)
+
+        # add retrieval to settings card
+        self.retrievalGroup.addSettingCard(self.topKCard)
+        self.retrievalGroup.addSettingCard(self.topNCard)
+        self.retrievalGroup.addSettingCard(self.chunkSizeCard)
 
         # add setting card group to layout
         self.expandLayout.setSpacing(28)
@@ -110,6 +176,8 @@ class SettingsInterface(ScrollArea):
         # Add data group and personalGroup to the setting page
         self.expandLayout.addWidget(self.dataGroup)
         self.expandLayout.addWidget(self.personalGroup)
+        self.expandLayout.addWidget(self.llmSetting)
+        self.expandLayout.addWidget(self.retrievalGroup)
 
 
     def __showRestartTooltip(self):
