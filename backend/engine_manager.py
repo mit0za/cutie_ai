@@ -50,14 +50,16 @@ class EngineManager(QThread):
                     "use_mmap": True,
                     "use_mlock": True,
                 },
-                verbose=cfg.verbose.value
+                verbose=cfg.verbose.value,
             )
             self.llm_ready.emit()
 
             ## Add Embedding Model ##
             Settings.embed_model = HuggingFaceEmbedding(
                 model_name="./models/qwen3-embedding-0.6b", 
-                device="cuda"
+                device="cuda",
+                trust_remote_code=True,
+                show_progress_bar=True
                 )
             
             self.progress.emit("Initializing reranker...")
