@@ -38,7 +38,7 @@ class EngineManager(QThread):
         try:
             ## Add LLM Model ##
             Settings.llm = LlamaCPP(
-                model_path="models/Meta-Llama-3.1-8B-Instruct-Q6_K_L.gguf",
+                model_path=cfg.llmModelPath.value,
                 temperature=cfg.temperature.value,
                 max_new_tokens=cfg.max_new_tokens.value,
                 context_window=8192,
@@ -50,19 +50,21 @@ class EngineManager(QThread):
                     "use_mmap": True,
                     "use_mlock": True,
                 },
-                verbose=cfg.verbose.value
+                verbose=cfg.verbose.value,
             )
             self.llm_ready.emit()
 
             ## Add Embedding Model ##
             Settings.embed_model = HuggingFaceEmbedding(
-                model_name="./models/qwen3-embedding-0.6b", 
-                device="cuda"
+                model_name=cfg.embedModelPath.value, 
+                device="cuda",
+                trust_remote_code=True,
+                show_progress_bar=True
                 )
             
             self.progress.emit("Initializing reranker...")
             reranker = SentenceTransformerRerank(
-                model="./models/bge-reranker-large",
+                model=cfg.rerankerModelPath.value,
                 top_n=cfg.top_n.value,
                 device="cuda"
             )

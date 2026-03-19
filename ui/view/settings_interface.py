@@ -1,6 +1,6 @@
 from qfluentwidgets import (ScrollArea, ExpandLayout, ScrollArea, setTheme, setThemeColor, isDarkTheme,  
-                            SettingCardGroup, SwitchSettingCard, FluentIcon, OptionsSettingCard, CustomColorSettingCard, InfoBar, FolderListSettingCard, RangeSettingCard)
-from PySide6.QtWidgets import QWidget, QLabel
+                            SettingCardGroup, SwitchSettingCard, FluentIcon, OptionsSettingCard, CustomColorSettingCard, InfoBar, FolderListSettingCard, RangeSettingCard, PushSettingCard)
+from PySide6.QtWidgets import QWidget, QLabel, QFileDialog
 from PySide6.QtCore import Qt, Signal, QStandardPaths
 from ui.config import cfg, isWin11
 from ui.signal_bus import signalBus
@@ -65,6 +65,36 @@ class SettingsInterface(ScrollArea):
                 self.tr("Use system setting")
             ],
             parent=self.personalGroup
+        )
+
+        # MODEL PATHS
+        self.modelGroup = SettingCardGroup(self.tr("Model Locations"), self.scrollWidget)
+        
+        # LLM File Picker
+        self.llmPathCard = PushSettingCard(
+            self.tr('Browse'),
+            FluentIcon.FOLDER,
+            self.tr('LLM Model Path'),
+            cfg.llmModelPath.value,
+            self.modelGroup
+        )
+        
+        # Embedding Folder Picker
+        self.embedPathCard = PushSettingCard(
+            self.tr('Browse'),
+            FluentIcon.FOLDER,
+            self.tr('Embedding Model Folder'),
+            cfg.embedModelPath.value,
+            self.modelGroup
+        )
+        
+        # Reranker Folder Picker
+        self.rerankerPathCard = PushSettingCard(
+            self.tr('Browse'),
+            FluentIcon.FOLDER,
+            self.tr('Reranker Model Folder'),
+            cfg.rerankerModelPath.value,
+            self.modelGroup
         )
 
         # LLM SETTINGS
@@ -160,6 +190,11 @@ class SettingsInterface(ScrollArea):
         self.personalGroup.addSettingCard(self.themeColorCard)
         self.personalGroup.addSettingCard(self.zoomCard)
 
+        # add model path cards
+        self.modelGroup.addSettingCard(self.llmPathCard)
+        self.modelGroup.addSettingCard(self.embedPathCard)
+        self.modelGroup.addSettingCard(self.rerankerPathCard)
+
         # add llm to settings card
         self.llmSetting.addSettingCard(self.temperatureCard)
         self.llmSetting.addSettingCard(self.maxTokensCard)
@@ -176,6 +211,7 @@ class SettingsInterface(ScrollArea):
         # Add data group and personalGroup to the setting page
         self.expandLayout.addWidget(self.dataGroup)
         self.expandLayout.addWidget(self.personalGroup)
+        self.expandLayout.addWidget(self.modelGroup)
         self.expandLayout.addWidget(self.llmSetting)
         self.expandLayout.addWidget(self.retrievalGroup)
 

@@ -5,6 +5,7 @@ from llama_index.core.node_parser import SentenceSplitter
 from llama_index.core.ingestion import IngestionPipeline, IngestionCache
 from PySide6.QtCore import QMetaObject, Qt
 from utils.metadata_extractor import MetaDataExtractor
+from llama_index.readers.file import DocxReader, PDFReader
 
 # TODO[Engine]: Re-enable multiprocessing once GUI-safe process spawning is implemented.
 # Issue: PySide6 event loop + multiprocessing.spawn causes deadlock on Windows.
@@ -44,6 +45,12 @@ def load_or_create_index(vector_store, storage_context, data_path: Union[str, Li
         log("[Warning] No valid data folders found. Using ./data as fallback.")
         valid_paths = ["./data"]
 
+    # Explicitly define extractors so llamaindex know which lib to use
+    file_extractor = {
+        ".docx": DocxReader(),
+        ".pdf": PDFReader(return_full_document=True)
+    }
+
     # Count current collection
     get_collection = vector_store._collection.count()
 
@@ -53,7 +60,10 @@ def load_or_create_index(vector_store, storage_context, data_path: Union[str, Li
         documents = []
         for path in valid_paths:
             log(f"Loading documents from: {path}")
-            reader = SimpleDirectoryReader(path,recursive=True)
+            reader = SimpleDirectoryReader(
+                path,
+                file_extractor=file_extractor,
+                recursive=True)
             docs = reader.load_data(show_progress=True)
             log(f"Loaded {len(docs)} documents from {path}")
             documents.extend(docs)
