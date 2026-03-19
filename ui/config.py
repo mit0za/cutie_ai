@@ -1,5 +1,5 @@
 import sys
-from qfluentwidgets import QConfig, ConfigItem, BoolValidator, OptionsConfigItem, OptionsValidator, RangeConfigItem, RangeValidator, Theme, qconfig, FolderListValidator
+from qfluentwidgets import QConfig, ConfigItem, BoolValidator, OptionsConfigItem, OptionsValidator, RangeConfigItem, RangeValidator, Theme, qconfig, FolderListValidator, ConfigValidator
 from pathlib import Path
 
 def isWin11():
@@ -12,6 +12,21 @@ class Config(QConfig):
         "MainWindow", "DpiScale", "Auto", OptionsValidator([1, 1.25, 1.5, 1.75, 2, "Auto"]), restart=True)
     dataFolders = ConfigItem(
         "Folders", "Data", [], FolderListValidator())
+    
+    # LLM Model Path, that's where it is
+    llmModelPath = ConfigItem(
+            "ModelPaths", "LLM", "models/Meta-Llama-3.1-8B-Instruct-Q6_K_L.gguf", ConfigValidator()
+        )
+
+    # Embed Model path
+    embedModelPath = ConfigItem(
+        "ModelPaths", "Embedding", "./models/qwen3-embedding-0.6b", ConfigValidator()
+    )
+
+    # Reranker model
+    rerankerModelPath = ConfigItem(
+        "ModelPaths", "Reranker", "./models/bge-reranker-large", ConfigValidator()
+    )
 
     # Material
     blurRadius  = RangeConfigItem("Material", "AcrylicBlurRadius", 15, RangeValidator(0, 40))
