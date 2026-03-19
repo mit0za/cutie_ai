@@ -5,11 +5,10 @@ from llama_index.core import Settings, StorageContext
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from llama_index.vector_stores.chroma import ChromaVectorStore
 from utils.index_manager import load_or_create_index
-from llama_index.core.query_engine import CitationQueryEngine, RetrieverQueryEngine, RouterQueryEngine
+from llama_index.core.query_engine import CitationQueryEngine
 from PySide6.QtCore import QThread, Signal
 from ui.config import cfg
 from llama_index.core.postprocessor import SentenceTransformerRerank
-from llama_index.core.prompts import PromptTemplate
 
 def storage_graph(persist_dir="./storageContext", vector_store=None):
     """Check if storageContext exist if not create one"""
@@ -30,6 +29,10 @@ class EngineManager(QThread):
     llm_ready = Signal()
     db_ready = Signal()
     engine_ready = Signal(object)
+    # Emits (index, reranker) when the vector index is built but before
+    # the LLM query engine is created. This allows the pure retrieval
+    # pipeline to become available earlier than the full RAG pipeline.
+    index_ready = Signal(object, object)
     need_data = Signal(str)
     error = Signal(str)
     critical_error = Signal(str)
@@ -93,6 +96,12 @@ class EngineManager(QThread):
             else:
                 self.progress.emit(f"Building new index from {len(data_paths)} folder(s)")
                 index = load_or_create_index(vector_store, storage_context, data_path=data_paths, callback=self.progress.emit)
+
+            # Expose the raw index and reranker for the pure retrieval pipeline.
+            # This signal fires before the LLM query engine is created, so the
+            # Document Search feature becomes usable while the heavier LLM-based
+            # CitationQueryEngine is still being initialized.
+            self.index_ready.emit(index, reranker)
 
             self.progress.emit("Initializing query engine...")
             query_engine = CitationQueryEngine.from_args(

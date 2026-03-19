@@ -5,6 +5,7 @@ from PySide6.QtCore import QTimer
 from ui.config import cfg
 from ui.signal_bus import signalBus
 from ui.view.chat_interface import ChatInterface
+from ui.view.search_interface import SearchInterface
 from ui.view.settings_interface import SettingsInterface
 
 class MainWindow(FluentWindow):
@@ -18,11 +19,16 @@ class MainWindow(FluentWindow):
         # enable acrylic effect
         self.navigationInterface.setAcrylicEnabled(True)
 
-        # create side bar interface
+        # create side bar interfaces
         self.chatInterface = ChatInterface(self)
+        self.searchInterface = SearchInterface(self)
         self.settingInterface = SettingsInterface(self)
 
-        
+        # Share the engine controller from ChatInterface with SearchInterface
+        # so the Document Search feature can access the same vector index
+        # and reranker without duplicating the initialization pipeline.
+        self.searchInterface.attach_engine(self.chatInterface.engine_controller)
+
         self.connectSignalToSlot()
 
         self.themeListener.start()
@@ -35,9 +41,9 @@ class MainWindow(FluentWindow):
     def initSidebar(self):
         """ add side bar"""
         self.addSubInterface(self.chatInterface, FluentIcon.CHAT, self.tr("Chat"))
+        self.addSubInterface(self.searchInterface, FluentIcon.SEARCH, self.tr("Document Search"))
         self.navigationInterface.addSeparator()
 
-        # pos = NavigationItemPosition.SCROLL
         self.addSubInterface(self.settingInterface, FluentIcon.SETTING, self.tr("Settings"), NavigationItemPosition.BOTTOM)
 
 

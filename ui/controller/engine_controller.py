@@ -2,18 +2,26 @@ from qfluentwidgets import InfoBar, InfoBarPosition
 from PySide6.QtCore import Qt, QTimer
 from backend.engine_manager import EngineManager
 from ui.config import cfg
+from ui.signal_bus import signalBus
 
 class EngineController:
     """ This is where we move all engine related stuff here so it's more modular and clean in chat_interface.py"""
     def __init__(self, parent):
-        self.parent = parent # So it will know wher eto attach toast to (in our case it's chat_interface)
+        self.parent = parent # So it will know where to attach toast to (in our case it's chat_interface)
         self.engine_thread = EngineManager()
         self.engine_info = None
         self.query_engine = None
 
+        # Pure retrieval pipeline state: stores the raw vector index and
+        # cross-encoder reranker so the Document Search feature can perform
+        # semantic retrieval without invoking the LLM.
+        self.index = None
+        self.reranker = None
+
         # Connect to signals
         self.engine_thread.progress.connect(self.on_progress)
         self.engine_thread.engine_ready.connect(self.on_engine_ready)
+        self.engine_thread.index_ready.connect(self.on_index_ready)
         self.engine_thread.error.connect(self.on_error)
         self.engine_thread.llm_ready.connect(self.on_llm_ready)
         self.engine_thread.db_ready.connect(self.on_db_ready)
@@ -49,6 +57,17 @@ class EngineController:
             duration=5000,
             parent=self.parent
         )
+
+    def on_index_ready(self, index, reranker):
+        """
+        Called when the vector index and reranker are initialized.
+        Stores them locally for the pure retrieval pipeline used by
+        Document Search, then broadcasts readiness via the global signal bus
+        so other components (e.g. SearchController) can react.
+        """
+        self.index = index
+        self.reranker = reranker
+        signalBus.indexReady.emit()
 
     def on_error(self, error):
         InfoBar.error(
@@ -129,9 +148,16 @@ class EngineController:
             self.engine_thread.quit()
             self.engine_thread.wait()
 
+        # Reset retrieval pipeline state so stale references are not used
+        # while the new engine thread is initializing.
+        self.index = None
+        self.reranker = None
+
         # Create a new thread to start fresh
         self.engine_thread = EngineManager()
         self.engine_thread.progress.connect(self.on_progress)
+        self.engine_thread.engine_ready.connect(self.on_engine_ready)
+        self.engine_thread.index_ready.connect(self.on_index_ready)
         self.engine_thread.error.connect(self.on_error)
         self.engine_thread.llm_ready.connect(self.on_llm_ready)
         self.engine_thread.db_ready.connect(self.on_db_ready)
