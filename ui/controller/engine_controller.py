@@ -19,17 +19,32 @@ class EngineController:
         self.reranker = None
 
         # Connect to signals
-        self.engine_thread.progress.connect(self.on_progress)
-        self.engine_thread.engine_ready.connect(self.on_engine_ready)
-        self.engine_thread.index_ready.connect(self.on_index_ready)
-        self.engine_thread.error.connect(self.on_error)
-        self.engine_thread.llm_ready.connect(self.on_llm_ready)
-        self.engine_thread.db_ready.connect(self.on_db_ready)
-        self.engine_thread.need_data.connect(self.on_need_data)
-        self.engine_thread.critical_error.connect(self.on_critical_error)
-        
+        self._connect_engine_signals(self.engine_thread)
+
         cfg.dataFolders.valueChanged.connect(self.on_data_folder_changed)
-        
+
+    def _connect_engine_signals(self, engine: EngineManager):
+        """
+        Wire all EngineManager signals to local handlers and forward
+        step-level progress to the global SignalBus so the Progress
+        Notification Dialog can display pipeline status.
+        """
+        engine.progress.connect(self.on_progress)
+        engine.engine_ready.connect(self.on_engine_ready)
+        engine.index_ready.connect(self.on_index_ready)
+        engine.error.connect(self.on_error)
+        engine.llm_ready.connect(self.on_llm_ready)
+        engine.db_ready.connect(self.on_db_ready)
+        engine.need_data.connect(self.on_need_data)
+        engine.critical_error.connect(self.on_critical_error)
+
+        # Forward granular step signals to the global bus for the dialog
+        engine.pipeline_started.connect(signalBus.progressStarted)
+        engine.step_progress.connect(signalBus.progressUpdated)
+        engine.pipeline_finished.connect(signalBus.progressFinished)
+        engine.error.connect(signalBus.progressError)
+        engine.critical_error.connect(signalBus.progressError)
+
 
     def start(self):
         self.engine_thread.start()
@@ -153,15 +168,8 @@ class EngineController:
         self.index = None
         self.reranker = None
 
-        # Create a new thread to start fresh
+        # Create a new thread and re-wire all signals (including progress forwarding)
         self.engine_thread = EngineManager()
-        self.engine_thread.progress.connect(self.on_progress)
-        self.engine_thread.engine_ready.connect(self.on_engine_ready)
-        self.engine_thread.index_ready.connect(self.on_index_ready)
-        self.engine_thread.error.connect(self.on_error)
-        self.engine_thread.llm_ready.connect(self.on_llm_ready)
-        self.engine_thread.db_ready.connect(self.on_db_ready)
-        self.engine_thread.need_data.connect(self.on_need_data)
-        self.engine_thread.critical_error.connect(self.on_critical_error)
+        self._connect_engine_signals(self.engine_thread)
 
         self.engine_thread.start()
