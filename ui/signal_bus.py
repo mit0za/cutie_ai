@@ -11,5 +11,11 @@ class SignalBus(QObject):
     # Listeners (e.g. SearchController) use this to enable search UI.
     indexReady = Signal()
 
+    # Global progress notification (engine init / indexing pipeline)
+    progressStarted = Signal(int)
+    progressUpdated = Signal(int, int, str)
+    progressFinished = Signal()
+    progressError = Signal(str)
+
 
 signalBus = SignalBus()

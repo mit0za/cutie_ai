@@ -7,6 +7,7 @@ from ui.signal_bus import signalBus
 from ui.view.chat_interface import ChatInterface
 from ui.view.search_interface import SearchInterface
 from ui.view.settings_interface import SettingsInterface
+from ui.component.progress_dialog import ProgressDialog
 
 class MainWindow(FluentWindow):
 
@@ -29,6 +30,8 @@ class MainWindow(FluentWindow):
         # and reranker without duplicating the initialization pipeline.
         self.searchInterface.attach_engine(self.chatInterface.engine_controller)
 
+        self.progressDialog = ProgressDialog(self)
+
         self.connectSignalToSlot()
 
         self.themeListener.start()
@@ -43,6 +46,14 @@ class MainWindow(FluentWindow):
         self.addSubInterface(self.chatInterface, FluentIcon.CHAT, self.tr("Chat"))
         self.addSubInterface(self.searchInterface, FluentIcon.SEARCH, self.tr("Document Search"))
         self.navigationInterface.addSeparator()
+
+        self.navigationInterface.addItem(
+            routeKey="progressToggle",
+            icon=FluentIcon.HISTORY,
+            text=self.tr("Progress"),
+            onClick=self.progressDialog.toggle,
+            position=NavigationItemPosition.BOTTOM,
+        )
 
         self.addSubInterface(self.settingInterface, FluentIcon.SETTING, self.tr("Settings"), NavigationItemPosition.BOTTOM)
 
@@ -65,6 +76,11 @@ class MainWindow(FluentWindow):
         self.move(w//2 - self.width()//2, h//2 - self.height()//2)
         self.show()
         QApplication.processEvents()
+        self.progressDialog.reposition()
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self.progressDialog.reposition()
 
     def closeEvent(self, e):
         self.themeListener.terminate()

@@ -23,7 +23,7 @@ def load_or_create_index(vector_store, storage_context, data_path: Union[str, Li
         if callback:
             try:
                 if hasattr(callback, "__self__") and hasattr(callback.__self__, "metaObject"):
-                    QMetaObject.invokeMethod( 
+                    QMetaObject.invokeMethod(
                         callback.__self__,
                         callback.__name__ if hasattr(callback, "__name__") else "emit",
                         Qt.QueuedConnection,
@@ -57,20 +57,21 @@ def load_or_create_index(vector_store, storage_context, data_path: Union[str, Li
     if get_collection == 0:
         log(f"Index empty. Rebuilding from {valid_paths} (this may take a while)...")
 
+        # Load documents from each data folder, reporting progress per-folder
         documents = []
-        for path in valid_paths:
-            log(f"Loading documents from: {path}")
+        for i, path in enumerate(valid_paths):
+            log(f"[{i+1}/{len(valid_paths)}] Loading documents from: {path}")
             reader = SimpleDirectoryReader(
                 path,
                 file_extractor=file_extractor,
                 recursive=True)
             docs = reader.load_data(show_progress=True)
-            log(f"Loaded {len(docs)} documents from {path}")
+            log(f"[{i+1}/{len(valid_paths)}] Loaded {len(docs)} documents from {path}")
             documents.extend(docs)
 
         log(f"Total {len(documents)} documents loaded from all paths.")
 
-        # Ingestion pipeline
+        # Ingestion pipeline: split into chunks and extract metadata
         pipeline = IngestionPipeline(
             transformations=[
                 SentenceSplitter(chunk_size=1024, chunk_overlap=256, include_metadata=True),
@@ -78,15 +79,16 @@ def load_or_create_index(vector_store, storage_context, data_path: Union[str, Li
             ]
         )
 
-        log("Running ingestion pipeline...")
+        log("Running ingestion pipeline (chunking + metadata extraction)…")
         nodes = pipeline.run(documents=documents, show_progress=True)
         pipeline.cache.persist("./cache") # save hashes for next indexing
         log(f"Pipeline produced {len(nodes)} nodes")
 
         if nodes:
             log(f"Sample metadata from first node: {nodes[0].metadata.get('excerpt_keywords', []) [:10]}")
-        
-        log("Starting VectoreStoreIndex")
+
+        # Build the vector store index from the produced nodes
+        log("Building VectorStoreIndex (embedding all nodes)…")
         index = VectorStoreIndex(nodes, storage_context=storage_context, show_progress=True)
         storage_context.persist(persist_dir="./storageContext")
         log("Index successfully built")
@@ -100,4 +102,3 @@ def load_or_create_index(vector_store, storage_context, data_path: Union[str, Li
         )
         log(f"BOOM LET'S GO!!!")
         return index
-        
