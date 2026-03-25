@@ -26,6 +26,11 @@ class QueryWorker(QObject):
                     text_excerpt = getattr(node, "text", "").strip()
                     text_excerpt = text_excerpt[:300].replace("\n", " ") + ("..." if len(text_excerpt) > 300 else "")
 
+                    # Resolve relative paths stored in the index to absolute
+                    # paths on the current machine for portable file access
+                    if path and not os.path.isabs(path):
+                        path = os.path.abspath(path)
+
                     if path and os.path.exists(path):
                         refs_html += (
                             f"<br><a href='file://{path}'>{i}. {title}</a> "
