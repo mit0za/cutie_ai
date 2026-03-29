@@ -1,4 +1,4 @@
-from qfluentwidgets import ScrollArea, setTheme, Theme, TextEdit, FluentIcon, PrimaryToolButton, InfoBar, InfoBarPosition
+from qfluentwidgets import ScrollArea, setTheme, Theme, TextEdit, FluentIcon, PrimaryToolButton, InfoBar, InfoBarPosition, qconfig, isDarkTheme
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QSizePolicy, QFrame, QLabel
 from PySide6.QtCore import QTimer, Qt, QUrl
 from ui.style_sheet import StyleSheet
@@ -10,28 +10,41 @@ from PySide6.QtGui import QDesktopServices
 class ChatBubble(QFrame):
     def __init__(self, text, is_user=True, parent=None):
         super().__init__(parent)
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        
-        # The label containing the actual text
-        self.label = QLabel(text)
-        self.label.setWordWrap(True)
-        # Prevent bubbles from stretching across the entire screen
-        self.label.setMaximumWidth(600) 
-        self.label.setTextInteractionFlags(Qt.TextSelectableByMouse | Qt.LinksAccessibleByMouse)
 
-        # Style the bubble based on who sent it
+        self.is_user = is_user
+        self.label = QLabel(text)
+
+        layout = QHBoxLayout(self)
         if is_user:
-            # User: Blue background, aligned right
-            self.label.setStyleSheet("padding: 12px; border-radius: 10px; color: white; background-color: #0060c0; font-size: 14px;")
-            layout.addStretch() # Pushes to the right
+            layout.addStretch()
             layout.addWidget(self.label)
         else:
-            # AI: Dark grey background, aligned left
-            self.label.setStyleSheet("padding: 12px; border-radius: 10px; color: white; background-color: #2b2b2b; font-size: 14px;")
             layout.addWidget(self.label)
-            layout.addStretch() # Pushes to the left
+            layout.addStretch()
 
+        self.update_style()
+        
+        qconfig.themeChanged.connect(self.update_style)
+    
+    def update_style(self):
+        if self.is_user:
+            bg = "#0060c0"
+            text_color = "white"
+        else:
+            if isDarkTheme():
+                bg = "#2b2b2b"
+                text_color = "white"
+            else:
+                bg = "#eaeaea"
+                text_color = "black"
+
+        self.label.setStyleSheet(f"""
+            padding: 12px;
+            border-radius: 10px;
+            font-size: 14px;
+            color: {text_color};
+            background-color: {bg};
+        """)
 
 # 2. Your main ChatInterface
 class ChatInterface(ScrollArea):
@@ -41,7 +54,7 @@ class ChatInterface(ScrollArea):
         super().__init__(parent=parent)
         self.setObjectName("chatInterface")
         setTheme(Theme.DARK)
-        StyleSheet.SETTING_INTERFACE.apply(self)
+        StyleSheet.CHAT_INTERFACE.apply(self)
 
         # layout setup
         self.view = QWidget()
