@@ -1,4 +1,7 @@
 import os
+import re
+from html import escape as html_escape
+from pathlib import Path
 from PySide6.QtCore import QObject, Signal
 
 class QueryWorker(QObject):
@@ -14,7 +17,7 @@ class QueryWorker(QObject):
         """Background worker for LLM query"""
         try:
             response = self.engine.query(self.query_text)
-            result_text = str(response).strip()
+            result_text = html_escape(str(response).strip()).replace("\n", "<br>")
 
             refs_html = ""
             if hasattr(response, "source_nodes"):
@@ -23,8 +26,12 @@ class QueryWorker(QObject):
                     meta = getattr(node, "metadata", {})
                     title = meta.get("file_name") or meta.get("source") or "Untitled"
                     path = meta.get("file_path")
-                    text_excerpt = getattr(node, "text", "").strip()
-                    text_excerpt = text_excerpt[:300].replace("\n", " ") + ("..." if len(text_excerpt) > 300 else "")
+                    raw_excerpt = getattr(node, "text", "").strip()
+                    # Strip OCR artifacts: control chars, Cyrillic, Arabic, CJK, etc.
+                    raw_excerpt = re.sub(r'[^\x20-\x7E\n\r\t\u00A0-\u024F\u2000-\u206F\u2010-\u2027]', '', raw_excerpt)
+                    text_excerpt = html_escape(raw_excerpt[:300].replace("\n", " "))
+                    if len(raw_excerpt) > 300:
+                        text_excerpt += "..."
 
                     # Resolve relative paths stored in the index to absolute
                     # paths on the current machine for portable file access
@@ -32,13 +39,14 @@ class QueryWorker(QObject):
                         path = os.path.abspath(path)
 
                     if path and os.path.exists(path):
+                        file_url = Path(path).as_uri()
                         refs_html += (
-                            f"<br><a href='file://{path}'>{i}. {title}</a> "
+                            f"<br><a href='{file_url}'>{i}. {html_escape(title)}</a> "
                             f"<span style='color:#999;'></span> {text_excerpt}<br>"
                         )
                     else:
                         refs_html += (
-                            f"<br>{i}. {title}: "
+                            f"<br>{i}. {html_escape(title)}: "
                             f"<span style='color:#999;'></span> {text_excerpt}<br>"
                         )
 
