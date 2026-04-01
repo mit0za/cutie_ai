@@ -6,24 +6,20 @@ from ui.controller.engine_controller import EngineController
 from ui.controller.pushButton_controller import PushButtonController
 from PySide6.QtGui import QDesktopServices
 
-# 1. Define the Chat Bubble right here in the same file
 class ChatBubble(QFrame):
     def __init__(self, text, is_user=True, parent=None):
         super().__init__(parent)
 
         self.is_user = is_user
         self.label = QLabel(text)
+        self.label.setWordWrap(True)
+        self.label.setTextInteractionFlags(Qt.TextSelectableByMouse)
 
-        layout = QHBoxLayout(self)
-        if is_user:
-            layout.addStretch()
-            layout.addWidget(self.label)
-        else:
-            layout.addWidget(self.label)
-            layout.addStretch()
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(12, 12, 12, 12)
+        layout.addWidget(self.label)
 
         self.update_style()
-        
         qconfig.themeChanged.connect(self.update_style)
     
     def update_style(self):
@@ -31,22 +27,22 @@ class ChatBubble(QFrame):
             bg = "#0060c0"
             text_color = "white"
         else:
-            if isDarkTheme():
-                bg = "#2b2b2b"
-                text_color = "white"
-            else:
-                bg = "#eaeaea"
-                text_color = "black"
+            bg = "#2b2b2b" if isDarkTheme() else "#e9e9eb"
+            text_color = "white" if isDarkTheme() else "black"
 
-        self.label.setStyleSheet(f"""
-            padding: 12px;
-            border-radius: 10px;
-            font-size: 14px;
-            color: {text_color};
-            background-color: {bg};
+        self.setStyleSheet(f"""
+            ChatBubble {{
+                background-color: {bg};
+                border-radius: 10px;
+            }}
+            QLabel {{
+                font-size: 14px;
+                color: {text_color};
+                background-color: transparent;
+                border: none;
+            }}
         """)
 
-# 2. Your main ChatInterface
 class ChatInterface(ScrollArea):
     """ Home interface """
 
@@ -127,7 +123,24 @@ class ChatInterface(ScrollArea):
     def add_message(self, text, is_user=True):
         """Call this function from your PushButtonController to add a new message"""
         bubble = ChatBubble(text, is_user=is_user)
-        self.message_layout.addWidget(bubble)
+        
+        # Set dynamic max width based on current window size (e.g., 85% of view)
+        max_width = int(self.chat_scroll.viewport().width() * 0.85)
+        if max_width > 0:
+            bubble.setMaximumWidth(max_width)
+        
+        # Handle alignment at the layout level, not inside the bubble
+        row_layout = QHBoxLayout()
+        row_layout.setContentsMargins(0, 0, 0, 0)
+        
+        if is_user:
+            row_layout.addStretch(1) # Pushes user bubble to the right
+            row_layout.addWidget(bubble)
+        else:
+            row_layout.addWidget(bubble)
+            row_layout.addStretch(1) # Pushes AI bubble to the left
+            
+        self.message_layout.addLayout(row_layout)
         
         # Auto-scroll to the bottom so the newest message is always visible
         QTimer.singleShot(50, self.scroll_to_bottom)
