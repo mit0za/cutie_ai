@@ -15,11 +15,11 @@ QLabel#settingLabel {
 }
 
 /* LIGHT THEME OVERRIDES */
-QWidget[theme="light"] TextEdit#input_box {
-    color: #1b4;
+QWidget[theme="light"] QLabel#settingLabel {
+    color: #111;
 }
 
 /* DARK THEME OVERRIDES */
-QWidget[theme="dark"] TextEdit#input_box {
-    color: #41d;
+QWidget[theme="dark"] QLabel#settingLabel {
+    color: #eee;
 }

@@ -40,10 +40,10 @@ class PushButtonController(QObject):
     def process_message(self, text):
         """ Run when message is sent"""
         if not self.engine_controller or not self.engine_controller.query_engine:
-            self.parent.chat_display.append("<i>Engine not ready yet...</i>")
+            self.parent.add_message("<i>Engine not ready yet...</i>", is_user=False)
             return
         
-        self.parent.chat_display.append(f"<b>You:</b> {text}")
+        self.parent.add_message(text, is_user=True)
         self.parent.input_box.clear()
 
         self.thread = QThread()
@@ -63,7 +63,7 @@ class PushButtonController(QObject):
 
     def display_response(self, response):
         """Display model's reply"""
-        self.parent.chat_display.append(f"<b>Llama:</b> {response}")
+        self.parent.add_message(response, is_user=False)
 
     def show_error(self, error):
         InfoBar.error(

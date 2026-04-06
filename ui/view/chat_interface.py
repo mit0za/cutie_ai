@@ -1,10 +1,47 @@
-from qfluentwidgets import ScrollArea, setTheme, Theme, TextBrowser, TextEdit, FluentIcon, PrimaryToolButton, setCustomStyleSheet, InfoBar, InfoBarPosition
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QSizePolicy 
+from qfluentwidgets import ScrollArea, setTheme, Theme, TextEdit, FluentIcon, PrimaryToolButton, InfoBar, InfoBarPosition, qconfig, isDarkTheme
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QSizePolicy, QFrame, QLabel
 from PySide6.QtCore import QTimer, Qt, QUrl
 from ui.style_sheet import StyleSheet
 from ui.controller.engine_controller import EngineController
 from ui.controller.pushButton_controller import PushButtonController
 from PySide6.QtGui import QDesktopServices
+
+class ChatBubble(QFrame):
+    def __init__(self, text, is_user=True, parent=None):
+        super().__init__(parent)
+
+        self.is_user = is_user
+        self.label = QLabel(text)
+        self.label.setWordWrap(True)
+        self.label.setTextInteractionFlags(Qt.TextSelectableByMouse)
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(12, 12, 12, 12)
+        layout.addWidget(self.label)
+
+        self.update_style()
+        qconfig.themeChanged.connect(self.update_style)
+    
+    def update_style(self):
+        if self.is_user:
+            bg = "#0060c0"
+            text_color = "white"
+        else:
+            bg = "#2b2b2b" if isDarkTheme() else "#e9e9eb"
+            text_color = "white" if isDarkTheme() else "black"
+
+        self.setStyleSheet(f"""
+            ChatBubble {{
+                background-color: {bg};
+                border-radius: 10px;
+            }}
+            QLabel {{
+                font-size: 14px;
+                color: {text_color};
+                background-color: transparent;
+                border: none;
+            }}
+        """)
 
 class ChatInterface(ScrollArea):
     """ Home interface """
@@ -13,41 +50,39 @@ class ChatInterface(ScrollArea):
         super().__init__(parent=parent)
         self.setObjectName("chatInterface")
         setTheme(Theme.DARK)
-        StyleSheet.SETTING_INTERFACE.apply(self)
+        StyleSheet.CHAT_INTERFACE.apply(self)
 
         # layout setup
         self.view = QWidget()
         self.setWidget(self.view)
         self.setWidgetResizable(True)
-        # use verticle layout for displaying text and input area
+        # use vertical layout for displaying text and input area
         main_layout = QVBoxLayout(self.view) 
         main_layout.setContentsMargins(12, 12, 12, 12)
         main_layout.setSpacing(8)
 
-        # chat display
-        self.chat_display = TextBrowser()
-        self.chat_display.setObjectName("textBrowser")
-        # self.chat_display.setOpenExternalLinks(True)
-        # self.chat_display.setReadOnly(True)
-        self.chat_display.setOpenLinks(False)
-        self.chat_display.anchorClicked.connect(self.open_link_with_desktop_services)
+        # Replace TextBrowser with a dedicated ScrollArea for the bubbles
+        self.chat_scroll = ScrollArea()
+        self.chat_scroll.setWidgetResizable(True)
+        self.chat_scroll.setStyleSheet("QScrollArea { background-color: transparent; border: none; }")
+        
+        self.message_container = QWidget()
+        self.message_container.setStyleSheet("background-color: transparent;")
+        self.message_layout = QVBoxLayout(self.message_container)
+        self.message_layout.setAlignment(Qt.AlignTop) # Stack bubbles from the top down
+        self.message_layout.setContentsMargins(0, 0, 10, 0)
+        self.message_layout.setSpacing(15) # Space between messages
+        
+        self.chat_scroll.setWidget(self.message_container)
+        main_layout.addWidget(self.chat_scroll)
 
-        # Style text browser
-        chatDisplay_qss = "TextBrowser{background-color: transparent;} TextBrowser#textBrowser:focus {background-color: transparent;} TextBrowser#textBrowser:hover,TextBrowser#textBrowser:pressed{background-color: transparent;}"
-        setCustomStyleSheet(self.chat_display, chatDisplay_qss, chatDisplay_qss)
-        self.chat_display.setFocusPolicy(Qt.NoFocus)
-
-        main_layout.addWidget(self.chat_display) # add to verticle layout
-
-        # Use horizontal layout for input area and button
         input_layout = QHBoxLayout()
         input_layout.setContentsMargins(0, 0, 0, 0)
         input_layout.setSpacing(5)
 
-        # Input box
         self.input_box = TextEdit()
         self.input_box.setObjectName("textEdit")
-        self.input_box.setPlaceholderText("Asking anything...")
+        self.input_box.setPlaceholderText("Ask anything...")
         self.input_box.setMinimumHeight(40)
         self.input_box.setMaximumHeight(200)
         self.input_box.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
@@ -84,6 +119,35 @@ class ChatInterface(ScrollArea):
         self.push_button.clicked.connect(self.push_button_controller.on_clicked)
         self.push_button_controller.attach_engine(self.engine_controller)
 
+    # --- HELPER TO ADD BUBBLES ---
+    def add_message(self, text, is_user=True):
+        """Call this function from your PushButtonController to add a new message"""
+        bubble = ChatBubble(text, is_user=is_user)
+        
+        # Set dynamic max width based on current window size (e.g., 85% of view)
+        max_width = int(self.chat_scroll.viewport().width() * 0.85)
+        if max_width > 0:
+            bubble.setMaximumWidth(max_width)
+        
+        # Handle alignment at the layout level, not inside the bubble
+        row_layout = QHBoxLayout()
+        row_layout.setContentsMargins(0, 0, 0, 0)
+        
+        if is_user:
+            row_layout.addStretch(1) # Pushes user bubble to the right
+            row_layout.addWidget(bubble)
+        else:
+            row_layout.addWidget(bubble)
+            row_layout.addStretch(1) # Pushes AI bubble to the left
+            
+        self.message_layout.addLayout(row_layout)
+        
+        # Auto-scroll to the bottom so the newest message is always visible
+        QTimer.singleShot(50, self.scroll_to_bottom)
+
+    def scroll_to_bottom(self):
+        scrollbar = self.chat_scroll.verticalScrollBar()
+        scrollbar.setValue(scrollbar.maximum())
 
     def autoResize(self):
         doc = self.input_box.document()
@@ -114,4 +178,3 @@ class ChatInterface(ScrollArea):
                 duration=6000,
                 parent=self
             )
-
