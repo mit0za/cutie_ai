@@ -133,7 +133,13 @@ class ResultCard(CardWidget):
         layout.addWidget(text_label)
 
     def _open_file(self, file_path):
-        """Open the source document with the system's default application."""
+        """
+        Open the source document with the system's default application.
+        Resolves relative paths against the project root so the index
+        remains portable across different machines.
+        """
+        if not os.path.isabs(file_path):
+            file_path = os.path.abspath(file_path)
         url = QUrl.fromLocalFile(file_path)
         QDesktopServices.openUrl(url)
 
