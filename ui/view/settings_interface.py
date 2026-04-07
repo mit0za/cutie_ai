@@ -1,4 +1,7 @@
-from qfluentwidgets import (ScrollArea, ExpandLayout, ScrollArea, setTheme, setThemeColor, isDarkTheme,  
+import os
+import zipfile
+import shutil
+from qfluentwidgets import (ScrollArea, ExpandLayout, ScrollArea, setTheme, setThemeColor, isDarkTheme,
                             SettingCardGroup, SwitchSettingCard, FluentIcon, OptionsSettingCard, CustomColorSettingCard, InfoBar, FolderListSettingCard, RangeSettingCard, PushSettingCard)
 from PySide6.QtWidgets import QWidget, QLabel, QFileDialog
 from PySide6.QtCore import Qt, Signal, QStandardPaths
@@ -17,7 +20,7 @@ class SettingsInterface(ScrollArea):
         # setting label
         self.settingLabel = QLabel(self.tr("Settings"), self)
 
-        # data 
+        # data
         self.dataGroup = SettingCardGroup(
             self.tr("Data"), self.scrollWidget)
         self.dataPicker = FolderListSettingCard(
@@ -26,6 +29,31 @@ class SettingsInterface(ScrollArea):
             directory=QStandardPaths.writableLocation(
                 QStandardPaths.AppConfigLocation),
             parent=self.dataGroup
+        )
+
+        # Database project management group — export and import the
+        # self-contained chroma_db/ directory as a portable .zip archive.
+        self.projectGroup = SettingCardGroup(
+            self.tr("Project Database"), self.scrollWidget)
+
+        # "Export Project" button — compresses the entire ./chroma_db/
+        # directory into a single .zip file so it can be shared across machines.
+        self.exportProjectCard = PushSettingCard(
+            self.tr('Export'),
+            FluentIcon.SHARE,
+            self.tr('Export Project'),
+            self.tr('Compress chroma_db/ into a .zip file for sharing'),
+            self.projectGroup
+        )
+
+        # "Import Project" button — lets the user pick a previously exported
+        # .zip file, extracts it and restores the chroma_db/ directory.
+        self.importProjectCard = PushSettingCard(
+            self.tr('Import'),
+            FluentIcon.DOWNLOAD,
+            self.tr('Import Project'),
+            self.tr('Restore chroma_db/ from a previously exported .zip file'),
+            self.projectGroup
         )
         # personalization
         self.personalGroup = SettingCardGroup(
@@ -184,6 +212,10 @@ class SettingsInterface(ScrollArea):
         # add data group to settings
         self.dataGroup.addSettingCard(self.dataPicker)
 
+        # add project database group (export / import)
+        self.projectGroup.addSettingCard(self.exportProjectCard)
+        self.projectGroup.addSettingCard(self.importProjectCard)
+
         # add personalize group to settings
         self.personalGroup.addSettingCard(self.micaCard)
         self.personalGroup.addSettingCard(self.themeCard)
@@ -210,6 +242,7 @@ class SettingsInterface(ScrollArea):
         self.expandLayout.setContentsMargins(36, 10, 36, 0)
         # Add data group and personalGroup to the setting page
         self.expandLayout.addWidget(self.dataGroup)
+        self.expandLayout.addWidget(self.projectGroup)
         self.expandLayout.addWidget(self.personalGroup)
         self.expandLayout.addWidget(self.modelGroup)
         self.expandLayout.addWidget(self.llmSetting)
@@ -229,11 +262,183 @@ class SettingsInterface(ScrollArea):
         # Show toast msg
         cfg.appRestartSig.connect(self.__showRestartTooltip)
 
-        cfg.themeChanged.connect(setTheme) 
+        cfg.themeChanged.connect(setTheme)
         self.themeColorCard.colorChanged.connect(lambda c: setThemeColor(c))
         self.micaCard.checkedChanged.connect(signalBus.micaEnableChanged)
+
+        # Wire up export and import buttons to their handler methods
+        self.exportProjectCard.clicked.connect(self.__onExportProject)
+        self.importProjectCard.clicked.connect(self.__onImportProject)
 
     def __onThemeChanged(self, *_):
         from qfluentwidgets import isDarkTheme
         self.setProperty("theme", "dark" if isDarkTheme() else "light")
         StyleSheet.SETTING_INTERFACE.apply(self)
+
+    def __onExportProject(self):
+        """
+        Export the entire chroma_db/ directory as a single .zip archive.
+
+        The chroma_db/ folder is self-contained — it stores both the vector
+        index and a copy of the original source documents. Compressing it
+        into a .zip lets the user share the full project database with
+        teammates, who can then import it on their own machine without
+        needing to re-index from the raw data files.
+
+        Workflow:
+        1. Validate that the chroma_db/ directory exists and is not empty.
+        2. Open a native "Save As" dialog so the user picks the destination.
+        3. Walk every file inside chroma_db/ and add it to the archive,
+           preserving the internal directory structure.
+        4. Show a success or error toast notification when finished.
+        """
+        # Resolve the absolute path to the chroma_db directory,
+        # which sits at the project root alongside main.py.
+        chroma_dir = os.path.abspath("./chroma_db")
+
+        # Guard: make sure the database folder actually exists and has content
+        if not os.path.isdir(chroma_dir) or not os.listdir(chroma_dir):
+            InfoBar.error(
+                self.tr("Export failed"),
+                self.tr("No chroma_db/ directory found or it is empty."),
+                duration=3000,
+                parent=self
+            )
+            return
+
+        # Let the user choose where to save the .zip file via a native dialog
+        save_path, _ = QFileDialog.getSaveFileName(
+            self,
+            self.tr("Export Project Database"),
+            os.path.join(
+                QStandardPaths.writableLocation(QStandardPaths.DesktopLocation),
+                "chroma_db_export.zip"
+            ),
+            self.tr("ZIP Archive (*.zip)")
+        )
+
+        # If the user cancelled the dialog, bail out silently
+        if not save_path:
+            return
+
+        try:
+            # Create the zip archive using deflate compression.
+            # os.walk traverses every subdirectory inside chroma_db/,
+            # and each file is stored with a relative path rooted at
+            # the parent of chroma_db/ so that extracting reproduces
+            # the original folder structure (chroma_db/...).
+            with zipfile.ZipFile(save_path, 'w', zipfile.ZIP_DEFLATED) as zf:
+                for dirpath, dirnames, filenames in os.walk(chroma_dir):
+                    for filename in filenames:
+                        # Build the full filesystem path to the current file
+                        abs_file = os.path.join(dirpath, filename)
+                        # Compute the archive-internal path relative to the
+                        # parent of chroma_db/, so the zip contains
+                        # "chroma_db/subdir/file.ext" entries.
+                        arc_name = os.path.relpath(abs_file, os.path.dirname(chroma_dir))
+                        zf.write(abs_file, arc_name)
+
+            InfoBar.success(
+                self.tr("Export complete"),
+                self.tr(f"Saved to {save_path}"),
+                duration=3000,
+                parent=self
+            )
+        except Exception as e:
+            InfoBar.error(
+                self.tr("Export failed"),
+                str(e),
+                duration=5000,
+                parent=self
+            )
+
+    def __onImportProject(self):
+        """
+        Import a previously exported .zip archive and restore chroma_db/.
+
+        This is the counterpart to __onExportProject. The user selects a
+        .zip file that was created by the export feature. The method then:
+
+        1. Opens a native file picker filtered to .zip files.
+        2. Validates that the archive actually contains a chroma_db/ root
+           directory (basic sanity check to reject unrelated zip files).
+        3. Removes the existing chroma_db/ directory to avoid mixing stale
+           data with the imported dataset.
+        4. Extracts the archive contents to the project root, recreating
+           the chroma_db/ folder with its full internal structure.
+        5. Shows a toast telling the user to restart the application so
+           the engine manager picks up the newly imported index.
+        """
+        # Open a native file picker that only shows .zip files
+        zip_path, _ = QFileDialog.getOpenFileName(
+            self,
+            self.tr("Import Project Database"),
+            QStandardPaths.writableLocation(QStandardPaths.DesktopLocation),
+            self.tr("ZIP Archive (*.zip)")
+        )
+
+        # If the user cancelled the dialog, bail out silently
+        if not zip_path:
+            return
+
+        try:
+            # Verify the selected file is a valid zip archive before proceeding
+            if not zipfile.is_zipfile(zip_path):
+                InfoBar.error(
+                    self.tr("Import failed"),
+                    self.tr("Selected file is not a valid ZIP archive."),
+                    duration=3000,
+                    parent=self
+                )
+                return
+
+            # Peek inside the archive to confirm it contains a chroma_db/
+            # directory. This prevents the user from accidentally importing
+            # an unrelated zip that would dump random files into the project.
+            with zipfile.ZipFile(zip_path, 'r') as zf:
+                archive_entries = zf.namelist()
+                has_chroma_dir = any(
+                    entry.startswith("chroma_db/") for entry in archive_entries
+                )
+
+                if not has_chroma_dir:
+                    InfoBar.error(
+                        self.tr("Import failed"),
+                        self.tr("The archive does not contain a chroma_db/ directory."),
+                        duration=3000,
+                        parent=self
+                    )
+                    return
+
+            # Determine the project root (where main.py and chroma_db/ live)
+            project_root = os.path.abspath(".")
+            chroma_dir = os.path.join(project_root, "chroma_db")
+
+            # Remove the existing chroma_db/ so imported data fully replaces
+            # it. This avoids stale vectors or documents from a previous
+            # indexing run mixing with the newly imported dataset.
+            if os.path.isdir(chroma_dir):
+                shutil.rmtree(chroma_dir)
+
+            # Extract the archive into the project root. Because every entry
+            # in the zip is prefixed with "chroma_db/", this recreates the
+            # chroma_db/ directory with all its subdirectories and files.
+            with zipfile.ZipFile(zip_path, 'r') as zf:
+                zf.extractall(project_root)
+
+            # Notify the user that the import succeeded and they need to
+            # restart the application for the engine manager to pick up
+            # the newly imported vector index and documents.
+            InfoBar.success(
+                self.tr("Import complete"),
+                self.tr("Database restored. Please restart the application to load the imported data."),
+                duration=5000,
+                parent=self
+            )
+        except Exception as e:
+            InfoBar.error(
+                self.tr("Import failed"),
+                str(e),
+                duration=5000,
+                parent=self
+            )
