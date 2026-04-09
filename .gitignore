@@ -14,9 +14,6 @@ models/
 # IDE / Editor
 .vscode/
 
-# Claude Code
-.claude/
-
 # Egg info
 *.egg-info/
 cutie_ai.egg-info/
@@ -28,7 +25,3 @@ Thumbs.db
 # Environment
 .env
 *.pyc
-
-# Personal documents
-CLAUDE.md
-CutieAI_*.md
