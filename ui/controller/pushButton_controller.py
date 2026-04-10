@@ -45,6 +45,7 @@ class PushButtonController(QObject):
         
         self.parent.add_message(text, is_user=True)
         self.parent.input_box.clear()
+        self.parent.show_loading()
 
         self.thread = QThread()
         self.worker = QueryWorker(self.engine_controller.query_engine, text)
@@ -63,9 +64,11 @@ class PushButtonController(QObject):
 
     def display_response(self, response):
         """Display model's reply"""
+        self.parent.hide_loading()
         self.parent.add_message(response, is_user=False)
 
     def show_error(self, error):
+        self.parent.hide_loading()
         InfoBar.error(
             title="Engine Error",
             content=str(error),

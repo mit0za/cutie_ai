@@ -51,6 +51,8 @@ class ChatInterface(ScrollArea):
         self.setObjectName("chatInterface")
         setTheme(Theme.DARK)
         StyleSheet.CHAT_INTERFACE.apply(self)
+        self.loading_bubble = None
+        self.loading_row_layout = None
 
         # layout setup
         self.view = QWidget()
@@ -118,6 +120,33 @@ class ChatInterface(ScrollArea):
         # connect to signal
         self.push_button.clicked.connect(self.push_button_controller.on_clicked)
         self.push_button_controller.attach_engine(self.engine_controller)
+
+    def show_loading(self):
+        if self.loading_bubble is not None:
+            return
+
+        self.loading_bubble = ChatBubble("Thinking...", is_user=False)
+
+        max_width = int(self.chat_scroll.viewport().width() * 0.85)
+        if max_width > 0:
+            self.loading_bubble.setMaximumWidth(max_width)
+
+        self.loading_row_layout = QHBoxLayout()
+        self.loading_row_layout.setContentsMargins(0, 0, 0, 0)
+        self.loading_row_layout.addWidget(self.loading_bubble)
+        self.loading_row_layout.addStretch(1)
+
+        self.message_layout.addLayout(self.loading_row_layout)
+        QTimer.singleShot(50, self.scroll_to_bottom)
+
+    def hide_loading(self):
+        if self.loading_bubble is None:
+            return
+
+        self.loading_bubble.setParent(None)
+        self.loading_bubble.deleteLater()
+        self.loading_bubble = None
+        self.loading_row_layout = None
 
     # --- HELPER TO ADD BUBBLES ---
     def add_message(self, text, is_user=True):
