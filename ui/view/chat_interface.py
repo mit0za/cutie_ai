@@ -7,12 +7,13 @@ from ui.controller.pushButton_controller import PushButtonController
 from PySide6.QtGui import QDesktopServices
 
 class ChatBubble(QFrame):
-    def __init__(self, text, is_user=True, parent=None, sources=None):
+    def __init__(self, text, is_user=True, parent=None, sources=None, chat_interface=None):
         super().__init__(parent)
 
         self.is_user = is_user
         self.sources = sources or []
         self.sources_visible = False
+        self.chat_interface = chat_interface
 
         self.main_layout = QVBoxLayout(self)
         self.main_layout.setContentsMargins(12, 12, 12, 12)
@@ -37,10 +38,34 @@ class ChatBubble(QFrame):
             self.sources_layout.setContentsMargins(12, 12, 12, 12)
             self.sources_layout.setSpacing(4)
 
-            for source in self.sources:
-                source_label = QLabel(f"• {source}")
+            for i, source in enumerate(self.sources, start=1):
+                # Split "title|path"
+                if "|" in source:
+                    title, path = source.split("|", 1)
+                else:
+                    title, path = source, None
+
+                # Clean display text
+                display_text = f'[{i}]: "{title.strip()}"'
+
+                source_label = QLabel(display_text)
                 source_label.setWordWrap(True)
-                source_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
+
+                # Make clickable if path exists
+                if path:
+                    source_label.setText(
+                        f'<a href="file:///{path}">{display_text}</a>'
+                    )
+                    source_label.setTextFormat(Qt.RichText)
+                    source_label.setTextInteractionFlags(Qt.TextBrowserInteraction)
+                    source_label.setOpenExternalLinks(False)
+                    source_label.linkActivated.connect(
+                        lambda url, p=path: self.chat_interface.open_link_with_desktop_services(QUrl.fromLocalFile(p))
+                    )
+
+                else:
+                    source_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
+
                 self.sources_layout.addWidget(source_label)
 
             self.sources_container.setVisible(False)
@@ -183,7 +208,7 @@ class ChatInterface(ScrollArea):
 
         self.loading_bubble = ChatBubble("Thinking...", is_user=False)
 
-        max_width = int(self.chat_scroll.viewport().width() * 0.85)
+        max_width = int(self.chat_scroll.viewport().width())
         if max_width > 0:
             self.loading_bubble.setMaximumWidth(max_width)
 
@@ -207,10 +232,10 @@ class ChatInterface(ScrollArea):
     # --- HELPER TO ADD BUBBLES ---
     def add_message(self, text, is_user=True, sources=None):
         """Add a message bubble, optionally with collapsible sources for AI replies."""
-        bubble = ChatBubble(text, is_user=is_user, sources=sources)
+        bubble = ChatBubble(text, is_user=is_user, sources=sources, chat_interface=self)
         
         # Set dynamic max width based on current window size (e.g., 85% of view)
-        max_width = int(self.chat_scroll.viewport().width() * 0.85)
+        max_width = int(self.chat_scroll.viewport().width() * 2)
         if max_width > 0:
             bubble.setMaximumWidth(max_width)
         
