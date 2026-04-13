@@ -66,9 +66,14 @@ class ChatBubble(QFrame):
         if self.is_user:
             bg = "#0060c0"
             text_color = "white"
+            border_color = "#0060c0"
         else:
             bg = "#2b2b2b" if isDarkTheme() else "#e9e9eb"
             text_color = "white" if isDarkTheme() else "black"
+            border_color = "#3a3a3a" if isDarkTheme() else "#d0d0d0"
+
+        button_bg = "#3a3a3a" if isDarkTheme() else "#dcdcdc"
+        button_text = "white" if isDarkTheme() else "black"
 
         self.setStyleSheet(f"""
             ChatBubble {{
@@ -80,6 +85,17 @@ class ChatBubble(QFrame):
                 color: {text_color};
                 background-color: transparent;
                 border: none;
+            }}
+            QPushButton {{
+                text-align: left;
+                padding: 4px 8px;
+                border-radius: 6px;
+                border: 1px solid {border_color};
+                background-color: {button_bg};
+                color: {button_text};
+            }}
+            QPushButton:hover {{
+                opacity: 0.9;
             }}
         """)
 
