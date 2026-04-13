@@ -206,16 +206,19 @@ class ChatInterface(ScrollArea):
         if self.loading_bubble is not None:
             return
 
-        self.loading_bubble = ChatBubble("Thinking...", is_user=False)
+        self.loading_bubble = ChatBubble("Thinking...", is_user=False, chat_interface=self)
 
-        max_width = int(self.chat_scroll.viewport().width())
-        if max_width > 0:
-            self.loading_bubble.setMaximumWidth(max_width)
+        viewport_width = self.chat_scroll.viewport().width()
+        self.loading_bubble.setMinimumWidth(int(viewport_width * 0.67))
+        self.loading_bubble.setMaximumWidth(int(viewport_width))
+        self.loading_bubble.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
 
         self.loading_row_layout = QHBoxLayout()
         self.loading_row_layout.setContentsMargins(0, 0, 0, 0)
-        self.loading_row_layout.addWidget(self.loading_bubble)
+        self.loading_row_layout.setSpacing(0)
         self.loading_row_layout.addStretch(1)
+        self.loading_row_layout.addWidget(self.loading_bubble, 0, Qt.AlignLeft)
+        self.loading_row_layout.addStretch(3)
 
         self.message_layout.addLayout(self.loading_row_layout)
         QTimer.singleShot(50, self.scroll_to_bottom)
@@ -231,28 +234,33 @@ class ChatInterface(ScrollArea):
 
     # --- HELPER TO ADD BUBBLES ---
     def add_message(self, text, is_user=True, sources=None):
-        """Add a message bubble, optionally with collapsible sources for AI replies."""
         bubble = ChatBubble(text, is_user=is_user, sources=sources, chat_interface=self)
-        
-        # Set dynamic max width based on current window size (e.g., 85% of view)
-        max_width = int(self.chat_scroll.viewport().width() * 2)
-        if max_width > 0:
-            bubble.setMaximumWidth(max_width)
-        
-        # Handle alignment at the layout level, not inside the bubble
+
+        viewport_width = self.chat_scroll.viewport().width()
+
+        if is_user:
+            bubble.setMinimumWidth(140)
+            bubble.setMaximumWidth(int(viewport_width * 0.45))
+            bubble.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Maximum)
+        else:
+            bubble.setMinimumWidth(int(viewport_width * 0.67))
+            bubble.setMaximumWidth(int(viewport_width))
+            bubble.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
+
         row_layout = QHBoxLayout()
         row_layout.setContentsMargins(0, 0, 0, 0)
-        
+        row_layout.setSpacing(0)
+
         if is_user:
-            row_layout.addStretch(1) # Pushes user bubble to the right
-            row_layout.addWidget(bubble)
+            row_layout.addStretch(5)
+            row_layout.addWidget(bubble, 0, Qt.AlignRight)
+            row_layout.addStretch(1)
         else:
-            row_layout.addWidget(bubble)
-            row_layout.addStretch(1) # Pushes AI bubble to the left
-            
+            row_layout.addStretch(1)
+            row_layout.addWidget(bubble, 0, Qt.AlignLeft)
+            row_layout.addStretch(3)
+
         self.message_layout.addLayout(row_layout)
-        
-        # Auto-scroll to the bottom so the newest message is always visible
         QTimer.singleShot(50, self.scroll_to_bottom)
 
     def scroll_to_bottom(self):
