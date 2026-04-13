@@ -2,7 +2,7 @@ import os
 from PySide6.QtCore import QObject, Signal
 
 class QueryWorker(QObject):
-    finished = Signal(str)
+    finished = Signal(str, list)
     error = Signal(str)
 
     def __init__(self, engine, query_text):
@@ -16,31 +16,32 @@ class QueryWorker(QObject):
             response = self.engine.query(self.query_text)
             result_text = str(response).strip()
 
-            refs_html = ""
+            sources = []
             if hasattr(response, "source_nodes"):
-                refs_html += "<hr><b> References:</b><br>"
                 for i, node in enumerate(response.source_nodes, start=1):
-                    meta = getattr(node, "metadata", {})
+                    meta = getattr(node, "metadata", {}) or {}
+
                     title = meta.get("file_name") or meta.get("source") or "Untitled"
                     path = meta.get("file_path")
-                    text_excerpt = getattr(node, "text", "").strip()
-                    text_excerpt = text_excerpt[:300].replace("\n", " ") + ("..." if len(text_excerpt) > 300 else "")
+                    page = meta.get("page_label") or meta.get("page") or meta.get("page_number")
+                    chunk = meta.get("chunk") or meta.get("chunk_id")
+
+                    location_parts = []
+                    if page:
+                        location_parts.append(f"page {page}")
+                    if chunk:
+                        location_parts.append(f"chunk {chunk}")
+
+                    location_text = f" - {', '.join(location_parts)}" if location_parts else ""
 
                     if path and os.path.exists(path):
-                        refs_html += (
-                            f"<br><a href='file://{path}'>{i}. {title}</a> "
-                            f"<span style='color:#999;'></span> {text_excerpt}<br>"
-                        )
+                        source_text = f"{title}{location_text}|{path}"
                     else:
-                        refs_html += (
-                            f"<br>{i}. {title}: "
-                            f"<span style='color:#999;'></span> {text_excerpt}<br>"
-                        )
+                        source_text = f"{title}{location_text}"
 
-            # Combine everything
-            final_output = f"<div>{result_text}</div>{refs_html}"
+                    sources.append(source_text)
 
-            self.finished.emit(final_output)
+            self.finished.emit(result_text, sources)
 
         except Exception as e:
             self.error.emit(str(e))
