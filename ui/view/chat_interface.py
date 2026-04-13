@@ -205,9 +205,9 @@ class ChatInterface(ScrollArea):
         self.loading_row_layout = None
 
     # --- HELPER TO ADD BUBBLES ---
-    def add_message(self, text, is_user=True):
-        """Call this function from your PushButtonController to add a new message"""
-        bubble = ChatBubble(text, is_user=is_user)
+    def add_message(self, text, is_user=True, sources=None):
+        """Add a message bubble, optionally with collapsible sources for AI replies."""
+        bubble = ChatBubble(text, is_user=is_user, sources=sources)
         
         # Set dynamic max width based on current window size (e.g., 85% of view)
         max_width = int(self.chat_scroll.viewport().width() * 0.85)
