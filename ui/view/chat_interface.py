@@ -1,5 +1,5 @@
 from qfluentwidgets import ScrollArea, setTheme, Theme, TextEdit, FluentIcon, PrimaryToolButton, InfoBar, InfoBarPosition, qconfig, isDarkTheme
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QSizePolicy, QFrame, QLabel
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QSizePolicy, QFrame, QLabel, QPushButton
 from PySide6.QtCore import QTimer, Qt, QUrl
 from ui.style_sheet import StyleSheet
 from ui.controller.engine_controller import EngineController
@@ -7,21 +7,61 @@ from ui.controller.pushButton_controller import PushButtonController
 from PySide6.QtGui import QDesktopServices
 
 class ChatBubble(QFrame):
-    def __init__(self, text, is_user=True, parent=None):
+    def __init__(self, text, is_user=True, parent=None, sources=None):
         super().__init__(parent)
 
         self.is_user = is_user
+        self.sources = sources or []
+        self.sources_visible = False
+
+        self.main_layout = QVBoxLayout(self)
+        self.main_layout.setContentsMargins(12, 12, 12, 12)
+        self.main_layout.setSpacing(8)
+
         self.label = QLabel(text)
         self.label.setWordWrap(True)
         self.label.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        self.main_layout.addWidget(self.label)
 
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(12, 12, 12, 12)
-        layout.addWidget(self.label)
+        self.sources_button = None
+        self.sources_container = None
+
+        if not self.is_user and self.sources:
+            self.sources_button = QPushButton("View Sources ▼")
+            self.sources_button.setCursor(Qt.PointingHandCursor)
+            self.sources_button.clicked.connect(self.toggle_sources)
+            self.main_layout.addWidget(self.sources_button)
+
+            self.sources_container = QWidget()
+            self.sources_layout = QVBoxLayout(self.sources_container)
+            self.sources_layout.setContentsMargins(12, 12, 12, 12)
+            self.sources_layout.setSpacing(4)
+
+            for source in self.sources:
+                source_label = QLabel(f"• {source}")
+                source_label.setWordWrap(True)
+                source_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
+                self.sources_layout.addWidget(source_label)
+
+            self.sources_container.setVisible(False)
+            self.main_layout.addWidget(self.sources_container)
 
         self.update_style()
         qconfig.themeChanged.connect(self.update_style)
-    
+
+    def toggle_sources(self):
+        if not self.sources_container:
+            return
+
+        self.sources_visible = not self.sources_visible
+        self.sources_container.setVisible(self.sources_visible)
+
+        if self.sources_button:
+            if self.sources_visible:
+                self.sources_button.setText("Hide Sources ▲")
+            else:
+                self.sources_button.setText("View Sources ▼")
+
     def update_style(self):
         if self.is_user:
             bg = "#0060c0"
