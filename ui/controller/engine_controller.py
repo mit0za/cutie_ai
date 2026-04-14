@@ -32,6 +32,7 @@ class EngineController:
         engine.progress.connect(self.on_progress)
         engine.engine_ready.connect(self.on_engine_ready)
         engine.index_ready.connect(self.on_index_ready)
+        engine.index_stats.connect(signalBus.indexStatsUpdated)
         engine.error.connect(self.on_error)
         engine.llm_ready.connect(self.on_llm_ready)
         engine.db_ready.connect(self.on_db_ready)
