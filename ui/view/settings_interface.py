@@ -2,8 +2,8 @@ import os
 import zipfile
 import shutil
 from qfluentwidgets import (ScrollArea, ExpandLayout, ScrollArea, setTheme, setThemeColor, isDarkTheme,
-                            SettingCardGroup, SwitchSettingCard, FluentIcon, OptionsSettingCard, CustomColorSettingCard, InfoBar, FolderListSettingCard, RangeSettingCard, PushSettingCard)
-from PySide6.QtWidgets import QWidget, QLabel, QFileDialog
+                            SettingCardGroup, SwitchSettingCard, FluentIcon, OptionsSettingCard, CustomColorSettingCard, InfoBar, FolderListSettingCard, RangeSettingCard, PushSettingCard, CardWidget)
+from PySide6.QtWidgets import QWidget, QLabel, QFileDialog, QGridLayout
 from PySide6.QtCore import Qt, Signal, QStandardPaths
 from ui.config import cfg, isWin11
 from ui.signal_bus import signalBus
@@ -35,6 +35,13 @@ class SettingsInterface(ScrollArea):
         # self-contained chroma_db/ directory as a portable .zip archive.
         self.projectGroup = SettingCardGroup(
             self.tr("Project Database"), self.scrollWidget)
+
+        # Index status group — live index statistics
+        self.indexStatusGroup = SettingCardGroup(
+            self.tr("Index Status"), self.scrollWidget)
+        self.indexStatusCard = CardWidget(self.indexStatusGroup)
+        # Build the status card UI once; values update via signalBus.
+        self._build_index_status_card()
 
         # "Export Project" button — compresses the entire ./chroma_db/
         # directory into a single .zip file so it can be shared across machines.
@@ -212,6 +219,9 @@ class SettingsInterface(ScrollArea):
         # add data group to settings
         self.dataGroup.addSettingCard(self.dataPicker)
 
+        # add index status group to settings
+        self.indexStatusGroup.addSettingCard(self.indexStatusCard)
+
         # add project database group (export / import)
         self.projectGroup.addSettingCard(self.exportProjectCard)
         self.projectGroup.addSettingCard(self.importProjectCard)
@@ -242,6 +252,7 @@ class SettingsInterface(ScrollArea):
         self.expandLayout.setContentsMargins(36, 10, 36, 0)
         # Add data group and personalGroup to the setting page
         self.expandLayout.addWidget(self.dataGroup)
+        self.expandLayout.addWidget(self.indexStatusGroup)
         self.expandLayout.addWidget(self.projectGroup)
         self.expandLayout.addWidget(self.personalGroup)
         self.expandLayout.addWidget(self.modelGroup)
@@ -265,6 +276,8 @@ class SettingsInterface(ScrollArea):
         cfg.themeChanged.connect(setTheme)
         self.themeColorCard.colorChanged.connect(lambda c: setThemeColor(c))
         self.micaCard.checkedChanged.connect(signalBus.micaEnableChanged)
+        # Listen for backend index stats so the UI stays in sync.
+        signalBus.indexStatsUpdated.connect(self._update_index_status)
 
         # Wire up export and import buttons to their handler methods
         self.exportProjectCard.clicked.connect(self.__onExportProject)
@@ -274,6 +287,63 @@ class SettingsInterface(ScrollArea):
         from qfluentwidgets import isDarkTheme
         self.setProperty("theme", "dark" if isDarkTheme() else "light")
         StyleSheet.SETTING_INTERFACE.apply(self)
+
+    def _build_index_status_card(self):
+        """Build the index status card layout and value labels."""
+        layout = QGridLayout(self.indexStatusCard)
+        layout.setContentsMargins(16, 12, 16, 12)
+        layout.setHorizontalSpacing(16)
+        layout.setVerticalSpacing(8)
+
+        label_style = "color: #888;"
+        value_style = "color: #ddd;" if isDarkTheme() else "color: #333;"
+
+        ready_label = QLabel(self.tr("Index Ready"))
+        ready_label.setStyleSheet(label_style)
+        self.index_ready_value = QLabel(self.tr("Loading..."))
+        self.index_ready_value.setStyleSheet(value_style)
+
+        doc_label = QLabel(self.tr("Documents"))
+        doc_label.setStyleSheet(label_style)
+        self.doc_count_value = QLabel("0")
+        self.doc_count_value.setStyleSheet(value_style)
+
+        node_label = QLabel(self.tr("Nodes"))
+        node_label.setStyleSheet(label_style)
+        self.node_count_value = QLabel("0")
+        self.node_count_value.setStyleSheet(value_style)
+
+        time_label = QLabel(self.tr("Last Indexed"))
+        time_label.setStyleSheet(label_style)
+        self.last_index_value = QLabel(self.tr("Unknown"))
+        self.last_index_value.setStyleSheet(value_style)
+
+        layout.addWidget(ready_label, 0, 0)
+        layout.addWidget(self.index_ready_value, 0, 1)
+        layout.addWidget(doc_label, 1, 0)
+        layout.addWidget(self.doc_count_value, 1, 1)
+        layout.addWidget(node_label, 2, 0)
+        layout.addWidget(self.node_count_value, 2, 1)
+        layout.addWidget(time_label, 3, 0)
+        layout.addWidget(self.last_index_value, 3, 1)
+
+    def _update_index_status(self, stats: dict):
+        """Update index status values from the backend stats payload."""
+        ready = stats.get("ready", False)
+        doc_count = stats.get("doc_count", 0)
+        node_count = stats.get("node_count", 0)
+        last_index_time = stats.get("last_index_time")
+
+        self.index_ready_value.setText(self.tr("Yes") if ready else self.tr("No"))
+        self.doc_count_value.setText(str(doc_count))
+        self.node_count_value.setText(str(node_count))
+        if last_index_time:
+            self.last_index_value.setText(str(last_index_time))
+        else:
+            if not ready and doc_count == 0 and node_count == 0:
+                self.last_index_value.setText(self.tr("Not indexed yet"))
+            else:
+                self.last_index_value.setText(self.tr("Unknown"))
 
     def __onExportProject(self):
         """
