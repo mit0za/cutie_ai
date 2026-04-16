@@ -14,6 +14,7 @@ class PushButtonController(QObject):
         self.parent = parent
         self.engine_thread = None
         self.engine_controller = None
+        self.is_processing = False
 
         # connect signal
         self.send_signal.connect(self.process_message)
@@ -33,8 +34,10 @@ class PushButtonController(QObject):
                 isClosable=True,
                 duration=2000,
                 position=InfoBarPosition.TOP_RIGHT,
-                parent=self)
+                parent=self
+            )
             return
+
         self.send_signal.emit(text)
 
     def process_message(self, text):
@@ -46,6 +49,14 @@ class PushButtonController(QObject):
         self.parent.add_message(text, is_user=True)
         self.parent.input_box.clear()
         self.parent.show_loading()
+
+        self.is_processing = True
+        self.parent.push_button.setEnabled(False)
+        self.parent.push_button.setToolTip("Please wait while the AI is generating a response.")
+
+        self.thread = QThread()
+        self.worker = QueryWorker(self.engine_controller.query_engine, text)
+        self.worker.moveToThread(self.thread)
 
         self.thread = QThread()
         self.worker = QueryWorker(self.engine_controller.query_engine, text)
@@ -66,9 +77,17 @@ class PushButtonController(QObject):
         """Display model's reply with collapsible sources."""
         self.parent.hide_loading()
         self.parent.add_message(response, is_user=False, sources=sources)
+        self.is_processing = False
+        self.parent.push_button.setEnabled(True)
+        self.parent.push_button.setToolTip("Send message")
 
     def show_error(self, error):
         self.parent.hide_loading()
+
+        self.is_processing = False
+        self.parent.push_button.setEnabled(True)
+        self.parent.push_button.setToolTip("Send message")
+        
         InfoBar.error(
             title="Engine Error",
             content=str(error),
