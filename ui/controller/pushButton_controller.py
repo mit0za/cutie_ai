@@ -62,10 +62,10 @@ class PushButtonController(QObject):
 
         self.thread.start()
 
-    def display_response(self, response):
-        """Display model's reply"""
+    def display_response(self, response, sources):
+        """Display model's reply with collapsible sources."""
         self.parent.hide_loading()
-        self.parent.add_message(response, is_user=False)
+        self.parent.add_message(response, is_user=False, sources=sources)
 
     def show_error(self, error):
         self.parent.hide_loading()

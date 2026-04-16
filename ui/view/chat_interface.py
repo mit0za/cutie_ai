@@ -1,5 +1,5 @@
 from qfluentwidgets import ScrollArea, setTheme, Theme, TextEdit, FluentIcon, PrimaryToolButton, InfoBar, InfoBarPosition, qconfig, isDarkTheme
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QSizePolicy, QFrame, QLabel
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QSizePolicy, QFrame, QLabel, QPushButton
 from PySide6.QtCore import QTimer, Qt, QUrl
 from ui.style_sheet import StyleSheet
 from ui.controller.engine_controller import EngineController
@@ -7,28 +7,98 @@ from ui.controller.pushButton_controller import PushButtonController
 from PySide6.QtGui import QDesktopServices
 
 class ChatBubble(QFrame):
-    def __init__(self, text, is_user=True, parent=None):
+    def __init__(self, text, is_user=True, parent=None, sources=None, chat_interface=None):
         super().__init__(parent)
 
         self.is_user = is_user
+        self.sources = sources or []
+        self.sources_visible = False
+        self.chat_interface = chat_interface
+
+        self.main_layout = QVBoxLayout(self)
+        self.main_layout.setContentsMargins(12, 12, 12, 12)
+        self.main_layout.setSpacing(8)
+
         self.label = QLabel(text)
         self.label.setWordWrap(True)
         self.label.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        self.main_layout.addWidget(self.label)
 
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(12, 12, 12, 12)
-        layout.addWidget(self.label)
+        self.sources_button = None
+        self.sources_container = None
+
+        if not self.is_user and self.sources:
+            self.sources_button = QPushButton("View Sources ▼")
+            self.sources_button.setCursor(Qt.PointingHandCursor)
+            self.sources_button.clicked.connect(self.toggle_sources)
+            self.main_layout.addWidget(self.sources_button)
+
+            self.sources_container = QWidget()
+            self.sources_layout = QVBoxLayout(self.sources_container)
+            self.sources_layout.setContentsMargins(12, 12, 12, 12)
+            self.sources_layout.setSpacing(4)
+
+            for i, source in enumerate(self.sources, start=1):
+                # Split "title|path"
+                if "|" in source:
+                    title, path = source.split("|", 1)
+                else:
+                    title, path = source, None
+
+                # Clean display text
+                display_text = f'[{i}]: "{title.strip()}"'
+
+                source_label = QLabel(display_text)
+                source_label.setWordWrap(True)
+
+                # Make clickable if path exists
+                if path:
+                    source_label.setText(
+                        f'<a href="file:///{path}">{display_text}</a>'
+                    )
+                    source_label.setTextFormat(Qt.RichText)
+                    source_label.setTextInteractionFlags(Qt.TextBrowserInteraction)
+                    source_label.setOpenExternalLinks(False)
+                    source_label.linkActivated.connect(
+                        lambda url, p=path: self.chat_interface.open_link_with_desktop_services(QUrl.fromLocalFile(p))
+                    )
+
+                else:
+                    source_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
+
+                self.sources_layout.addWidget(source_label)
+
+            self.sources_container.setVisible(False)
+            self.main_layout.addWidget(self.sources_container)
 
         self.update_style()
         qconfig.themeChanged.connect(self.update_style)
-    
+
+    def toggle_sources(self):
+        if not self.sources_container:
+            return
+
+        self.sources_visible = not self.sources_visible
+        self.sources_container.setVisible(self.sources_visible)
+
+        if self.sources_button:
+            if self.sources_visible:
+                self.sources_button.setText("Hide Sources ▲")
+            else:
+                self.sources_button.setText("View Sources ▼")
+
     def update_style(self):
         if self.is_user:
             bg = "#0060c0"
             text_color = "white"
+            border_color = "#0060c0"
         else:
             bg = "#2b2b2b" if isDarkTheme() else "#e9e9eb"
             text_color = "white" if isDarkTheme() else "black"
+            border_color = "#3a3a3a" if isDarkTheme() else "#d0d0d0"
+
+        button_bg = "#3a3a3a" if isDarkTheme() else "#dcdcdc"
+        button_text = "white" if isDarkTheme() else "black"
 
         self.setStyleSheet(f"""
             ChatBubble {{
@@ -40,6 +110,17 @@ class ChatBubble(QFrame):
                 color: {text_color};
                 background-color: transparent;
                 border: none;
+            }}
+            QPushButton {{
+                text-align: left;
+                padding: 4px 8px;
+                border-radius: 6px;
+                border: 1px solid {border_color};
+                background-color: {button_bg};
+                color: {button_text};
+            }}
+            QPushButton:hover {{
+                opacity: 0.9;
             }}
         """)
 
@@ -125,16 +206,19 @@ class ChatInterface(ScrollArea):
         if self.loading_bubble is not None:
             return
 
-        self.loading_bubble = ChatBubble("Thinking...", is_user=False)
+        self.loading_bubble = ChatBubble("Thinking...", is_user=False, chat_interface=self)
 
-        max_width = int(self.chat_scroll.viewport().width() * 0.85)
-        if max_width > 0:
-            self.loading_bubble.setMaximumWidth(max_width)
+        viewport_width = self.chat_scroll.viewport().width()
+        self.loading_bubble.setMinimumWidth(int(viewport_width * 0.67))
+        self.loading_bubble.setMaximumWidth(int(viewport_width))
+        self.loading_bubble.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
 
         self.loading_row_layout = QHBoxLayout()
         self.loading_row_layout.setContentsMargins(0, 0, 0, 0)
-        self.loading_row_layout.addWidget(self.loading_bubble)
+        self.loading_row_layout.setSpacing(0)
         self.loading_row_layout.addStretch(1)
+        self.loading_row_layout.addWidget(self.loading_bubble, 0, Qt.AlignLeft)
+        self.loading_row_layout.addStretch(3)
 
         self.message_layout.addLayout(self.loading_row_layout)
         QTimer.singleShot(50, self.scroll_to_bottom)
@@ -149,29 +233,34 @@ class ChatInterface(ScrollArea):
         self.loading_row_layout = None
 
     # --- HELPER TO ADD BUBBLES ---
-    def add_message(self, text, is_user=True):
-        """Call this function from your PushButtonController to add a new message"""
-        bubble = ChatBubble(text, is_user=is_user)
-        
-        # Set dynamic max width based on current window size (e.g., 85% of view)
-        max_width = int(self.chat_scroll.viewport().width() * 0.85)
-        if max_width > 0:
-            bubble.setMaximumWidth(max_width)
-        
-        # Handle alignment at the layout level, not inside the bubble
+    def add_message(self, text, is_user=True, sources=None):
+        bubble = ChatBubble(text, is_user=is_user, sources=sources, chat_interface=self)
+
+        viewport_width = self.chat_scroll.viewport().width()
+
+        if is_user:
+            bubble.setMinimumWidth(140)
+            bubble.setMaximumWidth(int(viewport_width * 0.45))
+            bubble.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Maximum)
+        else:
+            bubble.setMinimumWidth(int(viewport_width * 0.67))
+            bubble.setMaximumWidth(int(viewport_width))
+            bubble.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
+
         row_layout = QHBoxLayout()
         row_layout.setContentsMargins(0, 0, 0, 0)
-        
+        row_layout.setSpacing(0)
+
         if is_user:
-            row_layout.addStretch(1) # Pushes user bubble to the right
-            row_layout.addWidget(bubble)
+            row_layout.addStretch(5)
+            row_layout.addWidget(bubble, 0, Qt.AlignRight)
+            row_layout.addStretch(1)
         else:
-            row_layout.addWidget(bubble)
-            row_layout.addStretch(1) # Pushes AI bubble to the left
-            
+            row_layout.addStretch(1)
+            row_layout.addWidget(bubble, 0, Qt.AlignLeft)
+            row_layout.addStretch(3)
+
         self.message_layout.addLayout(row_layout)
-        
-        # Auto-scroll to the bottom so the newest message is always visible
         QTimer.singleShot(50, self.scroll_to_bottom)
 
     def scroll_to_bottom(self):

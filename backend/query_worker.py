@@ -5,7 +5,7 @@ from pathlib import Path
 from PySide6.QtCore import QObject, Signal
 
 class QueryWorker(QObject):
-    finished = Signal(str)
+    finished = Signal(str, list)
     error = Signal(str)
 
     def __init__(self, engine, query_text):
@@ -19,41 +19,35 @@ class QueryWorker(QObject):
             response = self.engine.query(self.query_text)
             result_text = html_escape(str(response).strip()).replace("\n", "<br>")
 
-            refs_html = ""
+            sources = []
             if hasattr(response, "source_nodes"):
-                refs_html += "<hr><b> References:</b><br>"
-                for i, node in enumerate(response.source_nodes, start=1):
-                    meta = getattr(node, "metadata", {})
+                for node in response.source_nodes:
+                    meta = getattr(node, "metadata", {}) or {}
+
                     title = meta.get("file_name") or meta.get("source") or "Untitled"
                     path = meta.get("file_path")
-                    raw_excerpt = getattr(node, "text", "").strip()
-                    # Strip OCR artifacts: control chars, Cyrillic, Arabic, CJK, etc.
-                    raw_excerpt = re.sub(r'[^\x20-\x7E\n\r\t\u00A0-\u024F\u2000-\u206F\u2010-\u2027]', '', raw_excerpt)
-                    text_excerpt = html_escape(raw_excerpt[:300].replace("\n", " "))
-                    if len(raw_excerpt) > 300:
-                        text_excerpt += "..."
+                    page = meta.get("page_label") or meta.get("page") or meta.get("page_number")
+                    chunk = meta.get("chunk") or meta.get("chunk_id")
 
-                    # Resolve relative paths stored in the index to absolute
-                    # paths on the current machine for portable file access
+                    location_parts = []
+                    if page:
+                        location_parts.append(f"page {page}")
+                    if chunk:
+                        location_parts.append(f"chunk {chunk}")
+
+                    location_text = f" - {', '.join(location_parts)}" if location_parts else ""
+
                     if path and not os.path.isabs(path):
                         path = os.path.abspath(path)
 
                     if path and os.path.exists(path):
-                        file_url = Path(path).as_uri()
-                        refs_html += (
-                            f"<br><a href='{file_url}'>{i}. {html_escape(title)}</a> "
-                            f"<span style='color:#999;'></span> {text_excerpt}<br>"
-                        )
+                        source_text = f"{title}{location_text}|{path}"
                     else:
-                        refs_html += (
-                            f"<br>{i}. {html_escape(title)}: "
-                            f"<span style='color:#999;'></span> {text_excerpt}<br>"
-                        )
+                        source_text = f"{title}{location_text}"
 
-            # Combine everything
-            final_output = f"<div>{result_text}</div>{refs_html}"
+                    sources.append(source_text)
 
-            self.finished.emit(final_output)
+            self.finished.emit(result_text, sources)
 
         except Exception as e:
             self.error.emit(str(e))
