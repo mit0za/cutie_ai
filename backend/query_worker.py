@@ -21,6 +21,7 @@ class QueryWorker(QObject):
 
             sources = []
             if hasattr(response, "source_nodes"):
+                for i, node in enumerate(response.source_nodes, start=1):
                 for node in response.source_nodes:
                     meta = getattr(node, "metadata", {}) or {}
 
