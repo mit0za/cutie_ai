@@ -17,5 +17,9 @@ class SignalBus(QObject):
     progressFinished = Signal()
     progressError = Signal(str)
 
+    # Emits index status stats for UI display.
+    # Payload: dict with keys like ready, doc_count, node_count, last_index_time.
+    indexStatsUpdated = Signal(dict)
+
 
 signalBus = SignalBus()

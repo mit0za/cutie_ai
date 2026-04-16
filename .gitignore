@@ -1,13 +1,27 @@
-.git
 venv
 .venv
 data/
 __pycache__
 */__pycache__
-chroma_db
-.idea
+**/__pycache__
+chroma_db/
+.idea/
 app/*
-./storageContext
+storageContext/
 cache
-models
-storageContext
+models/
+
+# IDE / Editor
+.vscode/
+
+# Egg info
+*.egg-info/
+cutie_ai.egg-info/
+
+# OS files
+Thumbs.db
+.DS_Store
+
+# Environment
+.env
+*.pyc

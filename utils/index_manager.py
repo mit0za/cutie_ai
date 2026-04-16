@@ -1,4 +1,5 @@
 import os
+import shutil
 from typing import Union, List
 from llama_index.core import VectorStoreIndex, SimpleDirectoryReader
 from llama_index.core.node_parser import SentenceSplitter
@@ -68,6 +69,33 @@ def load_or_create_index(vector_store, storage_context, data_path: Union[str, Li
             docs = reader.load_data(show_progress=True)
             log(f"[{i+1}/{len(valid_paths)}] Loaded {len(docs)} documents from {path}")
             documents.extend(docs)
+
+        # Copy source files into chroma_db/documents/ so the database is fully
+        # self-contained. Recipients only need the chroma_db/ folder to get both
+        # the vector index and the original reference files without re-indexing.
+        docs_dir = os.path.join(".", "chroma_db", "documents")
+        os.makedirs(docs_dir, exist_ok=True)
+        copied = set()
+        for doc in documents:
+            abs_path = doc.metadata.get("file_path", "")
+            if not abs_path or not os.path.isfile(abs_path):
+                continue
+            file_name = os.path.basename(abs_path)
+            dest = os.path.join(docs_dir, file_name)
+            # Handle duplicate filenames from different source folders
+            if file_name in copied and not os.path.samefile(abs_path, dest):
+                base, ext = os.path.splitext(file_name)
+                counter = 1
+                while os.path.exists(dest):
+                    file_name = f"{base}_{counter}{ext}"
+                    dest = os.path.join(docs_dir, file_name)
+                    counter += 1
+            if file_name not in copied:
+                shutil.copy2(abs_path, dest)
+                copied.add(file_name)
+                log(f"Copied {os.path.basename(abs_path)} -> chroma_db/documents/")
+            # Update metadata to point to the portable relative path
+            doc.metadata["file_path"] = os.path.join("chroma_db", "documents", file_name)
 
         log(f"Total {len(documents)} documents loaded from all paths.")
 

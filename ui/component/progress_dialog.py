@@ -7,6 +7,7 @@ each pipeline step with a status icon, message text, and an overall progress bar
 """
 
 from PySide6.QtCore import Qt, QPropertyAnimation, QEasingCurve, QPoint, QTimer
+import time
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QScrollArea, QGraphicsOpacityEffect, QSizePolicy
@@ -53,12 +54,23 @@ class _StepItem(QWidget):
         self.text_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         layout.addWidget(self.text_label)
 
+        # Duration label shown on the right (e.g. "2.4s")
+        self.duration_label = QLabel("")
+        self.duration_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        self.duration_label.setFixedWidth(70)
+        self.duration_label.setStyleSheet("color: #888; font-size: 10px;")
+        layout.addWidget(self.duration_label)
+
         # Start in the pending state
         self.set_state(self.PENDING)
 
     def update_message(self, message: str):
         """Replace the description text for this step."""
         self.text_label.setText(message)
+
+    def update_duration(self, text: str):
+        """Update the duration label text."""
+        self.duration_label.setText(text)
 
     def set_state(self, state: int):
         """Update visual appearance to reflect the given state."""
@@ -119,6 +131,11 @@ class ProgressDialog(QWidget):
         self._current_step = -1
         self._total_steps = 0
         self._is_shown = False
+        self._step_start_ts = {}
+        self._step_end_ts = {}
+        self._duration_timer = QTimer(self)
+        self._duration_timer.setInterval(250)
+        self._duration_timer.timeout.connect(self._refresh_running_duration)
 
         self._build_ui()
         self._connect_signals()
@@ -220,6 +237,9 @@ class ProgressDialog(QWidget):
         self._progress_bar.setValue(0)
         self._status_label.setText("Starting…")
         self._title_label.setText("Background Tasks")
+        self._step_start_ts.clear()
+        self._step_end_ts.clear()
+        self._duration_timer.stop()
         self.slide_in()
 
     def _on_updated(self, step_index: int, total_steps: int, message: str):
@@ -230,6 +250,7 @@ class ProgressDialog(QWidget):
         for i in range(step_index):
             if i < len(self._step_items):
                 self._step_items[i].set_state(_StepItem.DONE)
+                self._finalize_step_duration(i)
 
         # Create the step widget if it does not already exist
         while len(self._step_items) <= step_index:
@@ -242,6 +263,9 @@ class ProgressDialog(QWidget):
         current = self._step_items[step_index]
         current.update_message(message)
         current.set_state(_StepItem.RUNNING)
+        if step_index not in self._step_start_ts:
+            self._step_start_ts[step_index] = time.monotonic()
+        self._update_step_duration(step_index, running=True)
 
         self._current_step = step_index
 
@@ -254,14 +278,20 @@ class ProgressDialog(QWidget):
         if not self._is_shown:
             self.slide_in()
 
+        if not self._duration_timer.isActive():
+            self._duration_timer.start()
+
     def _on_finished(self):
         """Mark all remaining steps as done and schedule auto-hide."""
         for item in self._step_items:
             item.set_state(_StepItem.DONE)
+        for i in range(len(self._step_items)):
+            self._finalize_step_duration(i)
 
         self._progress_bar.setValue(100)
         self._status_label.setText("All tasks completed")
         self._title_label.setText("Background Tasks ✓")
+        self._duration_timer.stop()
 
         # Auto-hide after 6 seconds so the user can still glance at results
         QTimer.singleShot(6000, self.slide_out)
@@ -271,9 +301,11 @@ class ProgressDialog(QWidget):
         if 0 <= self._current_step < len(self._step_items):
             self._step_items[self._current_step].set_state(_StepItem.ERROR)
             self._step_items[self._current_step].update_message(error_msg)
+            self._finalize_step_duration(self._current_step)
 
         self._status_label.setText("Error occurred")
         self._title_label.setText("Background Tasks ✕")
+        self._duration_timer.stop()
 
     # -- Step management -------------------------------------------------------
 
@@ -283,6 +315,47 @@ class ProgressDialog(QWidget):
             self._list_layout.removeWidget(item)
             item.deleteLater()
         self._step_items.clear()
+        self._step_start_ts.clear()
+        self._step_end_ts.clear()
+
+    def _format_duration(self, seconds: float) -> str:
+        """Format duration seconds for display."""
+        if seconds < 0:
+            seconds = 0
+        if seconds < 60:
+            return f"{seconds:.1f}s"
+        minutes = int(seconds // 60)
+        rem = seconds - (minutes * 60)
+        return f"{minutes}m {rem:04.1f}s"
+
+    def _finalize_step_duration(self, step_index: int):
+        """Freeze duration for a completed or failed step."""
+        if step_index in self._step_end_ts:
+            return
+        start_ts = self._step_start_ts.get(step_index)
+        if start_ts is None:
+            return
+        self._step_end_ts[step_index] = time.monotonic()
+        self._update_step_duration(step_index, running=False)
+
+    def _update_step_duration(self, step_index: int, running: bool):
+        """Update duration label for a given step."""
+        if step_index >= len(self._step_items):
+            return
+        start_ts = self._step_start_ts.get(step_index)
+        if start_ts is None:
+            return
+        end_ts = self._step_end_ts.get(step_index)
+        if running or end_ts is None:
+            elapsed = time.monotonic() - start_ts
+        else:
+            elapsed = end_ts - start_ts
+        self._step_items[step_index].update_duration(self._format_duration(elapsed))
+
+    def _refresh_running_duration(self):
+        """Refresh live duration for the currently running step."""
+        if self._current_step >= 0:
+            self._update_step_duration(self._current_step, running=True)
 
     # -- Slide / fade animations -----------------------------------------------
 
