@@ -1,4 +1,7 @@
 import os
+import re
+from html import escape as html_escape
+from pathlib import Path
 from PySide6.QtCore import QObject, Signal
 
 class QueryWorker(QObject):
@@ -14,7 +17,7 @@ class QueryWorker(QObject):
         """Background worker for LLM query"""
         try:
             response = self.engine.query(self.query_text)
-            result_text = str(response).strip()
+            result_text = html_escape(str(response).strip()).replace("\n", "<br>")
 
             sources = []
             if hasattr(response, "source_nodes"):

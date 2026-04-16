@@ -1,5 +1,6 @@
 # Dependencies
 
+
 **Python Libraries**
 ```
 pip install -r requirements.txt
@@ -20,6 +21,11 @@ https://huggingface.co/Qwen/Qwen3-Embedding-0.6B
 https://huggingface.co/BAAI/bge-reranker-large
 ```
 
+**HIP out of memory**
+<br><br>In case your embedding failed
+```
+export PYTORCH_HIP_ALLOC_CONF=expandable_segments:True
+```
 # How to set up LLM
 1. Create models directory<br>
 Create a folder called ```models``` and put the raw model file ```Meta-Llama-3.1-8B-Instruct-Q6_K_L.gguf``` inside it.
