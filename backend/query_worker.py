@@ -22,6 +22,7 @@ class QueryWorker(QObject):
             sources = []
             if hasattr(response, "source_nodes"):
                 for i, node in enumerate(response.source_nodes, start=1):
+                for node in response.source_nodes:
                     meta = getattr(node, "metadata", {}) or {}
 
                     title = meta.get("file_name") or meta.get("source") or "Untitled"
@@ -36,6 +37,9 @@ class QueryWorker(QObject):
                         location_parts.append(f"chunk {chunk}")
 
                     location_text = f" - {', '.join(location_parts)}" if location_parts else ""
+
+                    if path and not os.path.isabs(path):
+                        path = os.path.abspath(path)
 
                     if path and os.path.exists(path):
                         source_text = f"{title}{location_text}|{path}"
