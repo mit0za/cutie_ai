@@ -5,6 +5,7 @@ from ui.style_sheet import StyleSheet
 from ui.controller.engine_controller import EngineController
 from ui.controller.pushButton_controller import PushButtonController
 from PySide6.QtGui import QDesktopServices
+from qfluentwidgets import ComboBox
 
 class ChatBubble(QFrame):
     def __init__(self, text, is_user=True, parent=None, sources=None, chat_interface=None):
@@ -163,6 +164,20 @@ class ChatInterface(ScrollArea):
         input_layout.setContentsMargins(0, 0, 0, 0)
         input_layout.setSpacing(5)
 
+        # ComboBox for user's intent
+        self.intent_combo = ComboBox()
+        self.intent_combo.setFixedWidth(130)
+        self.intent_combo.setFixedHeight(45)
+        self.intent_combo.addItems([
+            "Fact",
+            "Summary", 
+            "Timeline",
+            "People",
+            "Compare",
+        ])
+        input_layout.addWidget(self.intent_combo)
+
+        # Input box for user query
         self.input_box = TextEdit()
         self.input_box.setObjectName("textEdit")
         self.input_box.setPlaceholderText("Ask anything...")
