@@ -3,7 +3,7 @@ import zipfile
 import shutil
 from qfluentwidgets import (ScrollArea, ExpandLayout, ScrollArea, setTheme, setThemeColor, isDarkTheme,
                             SettingCardGroup, SwitchSettingCard, FluentIcon, OptionsSettingCard, CustomColorSettingCard, InfoBar, FolderListSettingCard, RangeSettingCard, PushSettingCard, CardWidget)
-from PySide6.QtWidgets import QWidget, QLabel, QFileDialog, QGridLayout
+from PySide6.QtWidgets import QWidget, QLabel, QFileDialog, QGridLayout, QSizePolicy
 from PySide6.QtCore import Qt, Signal, QStandardPaths
 from ui.config import cfg, isWin11
 from ui.signal_bus import signalBus
@@ -291,6 +291,7 @@ class SettingsInterface(ScrollArea):
     def _build_index_status_card(self):
         """Build the index status card layout and value labels."""
         layout = QGridLayout(self.indexStatusCard)
+        self.index_status_layout = layout
         layout.setContentsMargins(16, 12, 16, 12)
         layout.setHorizontalSpacing(16)
         layout.setVerticalSpacing(8)
@@ -327,6 +328,19 @@ class SettingsInterface(ScrollArea):
         layout.addWidget(time_label, 3, 0)
         layout.addWidget(self.last_index_value, 3, 1)
 
+        # Let the card follow the layout's natural height so all four
+        # status rows remain visible inside the SettingCardGroup.
+        self.indexStatusCard.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self._sync_index_status_card_height()
+
+    def _sync_index_status_card_height(self):
+        """Resize the status card to fit its content height."""
+        content_height = self.index_status_layout.sizeHint().height()
+        margins = self.index_status_layout.contentsMargins()
+        self.indexStatusCard.setFixedHeight(
+            content_height + margins.top() + margins.bottom()
+        )
+
     def _update_index_status(self, stats: dict):
         """Update index status values from the backend stats payload."""
         ready = stats.get("ready", False)
@@ -344,6 +358,9 @@ class SettingsInterface(ScrollArea):
                 self.last_index_value.setText(self.tr("Not indexed yet"))
             else:
                 self.last_index_value.setText(self.tr("Unknown"))
+
+        # Re-apply the height after text updates so longer values do not get clipped.
+        self._sync_index_status_card_height()
 
     def __onExportProject(self):
         """
