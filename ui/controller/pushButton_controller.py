@@ -58,10 +58,6 @@ class PushButtonController(QObject):
         self.worker = QueryWorker(self.engine_controller.query_engine, text)
         self.worker.moveToThread(self.thread)
 
-        self.thread = QThread()
-        self.worker = QueryWorker(self.engine_controller.query_engine, text)
-        self.worker.moveToThread(self.thread)
-
         # Connect signals
         self.thread.started.connect(self.worker.run)
         self.worker.finished.connect(self.display_response)
