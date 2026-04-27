@@ -1,4 +1,83 @@
+import re
+import spacy
 from llama_index.core.extractors import BaseExtractor
+from utils.domain_patterns import (
+    load_keywords,
+    find_titled_people,
+    find_pound_amounts,
+    find_years_mentioned,
+    find_known_organisations,
+    find_known_places
+)
+
+# Load spaCy model
+nlp = spacy.load("en_core_web_sm")
+keywords = load_keywords()
+
+def _parse_filename(filename):
+    # remove file extensions
+    filename = filename.replace(".docx", "").replace(".pdf", "")
+    clean_name = filename.strip()
+    parts = clean_name.split()
+
+    # file attribute
+    year = None
+    source = "Unknown"
+    article_id = None
+    title = clean_name
+
+    # Check if we have enough parts
+    if len(parts) > 0:
+        first_part = parts[0]
+
+        # Check if it followed the standard of ([year/month/date] [p2]) etc...
+        if first_part.isdigit() and len(first_part) == 8:
+            # Get the year
+            year = ""
+            for i in range(4):
+                year += first_part[i]
+            year = int(year)
+
+            # Look for Article ID
+            id_index = None
+            for index in range(1, len(parts)):
+                if parts[index].isdigit() and len(parts[index]) > 5:
+                    id_index = index
+                    break
+
+            # Extract the source and title based on where the ID is
+            if id_index is not None:
+                # The Article ID 
+                article_id = parts[id_index]
+
+                # If page exists (like p2) source usually start at index 2
+                start_at = 2 if len(parts) > 2 and "p" in parts[1] else 1
+
+                # The Source
+                source_parts = []
+                for i in range(start_at, id_index):
+                    source_parts.append(parts[i])
+                source = " ".join(source_parts)
+
+                # The Title
+                title_parts = []
+                for i in range(id_index + 1, len(parts)):
+                    title_parts.append(parts[i])
+                title = " ".join(title_parts)
+            else:
+                # Fall back to use everything after the date as the title
+                title_parts = []
+                for i in range(1, len(parts)):
+                    title_parts.append(parts[i])
+                title = " ".join(title_parts)
+
+        return {
+            "year": year,
+            "source": source if source.strip() else "Unknown",
+            "article_id": article_id,
+            "title": title.strip()
+            
+        }
 
 class MetaDataExtractor(BaseExtractor):
     async def aextract(self, nodes):
