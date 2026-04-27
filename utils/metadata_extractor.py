@@ -11,20 +11,19 @@ from utils.domain_patterns import (
 )
 
 # Load spaCy model
-nlp = spacy.load("en_core_web_sm")
+nlp = spacy.load("en_core_web_sm", enable=["ner"])
 keywords = load_keywords()
 
 def _parse_filename(filename):
     # remove file extensions
-    filename = filename.replace(".docx", "").replace(".pdf", "")
-    clean_name = filename.strip()
-    parts = clean_name.split()
+    filename = filename.replace(".docx", "").replace(".pdf", "").strip()
+    parts = filename.split()
 
     # file attribute
     year = None
     source = "Unknown"
     article_id = None
-    title = clean_name
+    title = filename
 
     # Check if we have enough parts
     if len(parts) > 0:
@@ -70,14 +69,12 @@ def _parse_filename(filename):
                 for i in range(1, len(parts)):
                     title_parts.append(parts[i])
                 title = " ".join(title_parts)
-
-        return {
-            "year": year,
-            "source": source if source.strip() else "Unknown",
-            "article_id": article_id,
-            "title": title.strip()
-            
-        }
+    return {
+        "year": year,
+        "source": source if source.strip() else "Unknown",
+        "article_id": article_id,
+        "title": title.strip()
+}
     
 def _extract_entities(text):
     # Cap text length
@@ -127,63 +124,18 @@ class MetaDataExtractor(BaseExtractor):
 
         for node in nodes:
             filename = node.metadata.get("file_name", "").strip()
-            # remove file extensions
-            filename = filename.replace(".docx", "").replace(".pdf", "")
-            parts = filename.split()
+            file_meta = _parse_filename(filename)
 
-            # file attribute
-            year = None
-            source = "Unknown"
-            article_id = None
-            title = filename
+            text = node.get_content()
+            entity_meta = _extract_entities(text)
 
-            # Check if it followed the standard of ([year/month/date] [p2]) etc...
-            if parts[0].isdigit() and len(parts[0]) == 8:
+            # Merge filename metadata + entity metadata
+            combined = {**file_meta, **entity_meta}
 
-                # Get year
-                year = ""
-                count = 0
-                for char in parts[0]:
-                    if count >= 4:
-                        break
-                    year += char
-                    count += 1
-                # type cast to int
-                year = int(year)
+            # Tell LlamaIndex not to hide any of these from the LLM
+            node.excluded_llm_metadata_keys = []
+            node.excluded_embed_metadata_keys = ["article_id", "people", "amounts"]
 
-                # Check for article id
-                id_index = None
-                for i in range(2, len(parts)):
-                    if parts[i].isdigit():
-                        id_index = i
-                        break
-
-                if id_index is not None:
-                    source = " "
-                    for i in range(2, id_index):
-                        # Add each word before the article id
-                        source += parts[i]
-                        source += " "
-
-                    # Get article ID
-                    article_id = parts[id_index]
-
-                    # Get title
-                    title = " "
-                    for i in range(id_index + 1, len(parts)):
-                        title += parts[i]
-                        title += " "
-
-            # If it doesn't follow the naming convention
-            # then we'll use the entire length as a name
-            else:
-                title = filename
-
-            metadata_list.append({
-                "year": year,
-                "source": source,
-                "article_id": article_id,
-                "title": title
-            })
+            metadata_list.append(combined)
 
         return metadata_list
