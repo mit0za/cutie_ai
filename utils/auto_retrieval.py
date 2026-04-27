@@ -2,7 +2,7 @@ from llama_index.core.vector_stores.types import MetadataInfo, VectorStoreInfo
 
 # This acts as a manual for the Auto Retrieverr.
 # It tells the LLM what filters are available in our db
-vector_store_into = VectorStoreInfo(
+vector_store_info = VectorStoreInfo(
     content_info="Articles and documents from a historical newspaper archieve",
     
     #Defines columns the LLM is allowed to filter by
