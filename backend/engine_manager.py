@@ -11,6 +11,8 @@ from llama_index.core.query_engine import CitationQueryEngine
 from PySide6.QtCore import QThread, Signal
 from ui.config import cfg
 from llama_index.core.postprocessor import SentenceTransformerRerank
+from utils.auto_retrieval import vector_store_info
+from llama_index.core.retrievers import VectorIndexAutoRetriever
 
 def storage_graph(persist_dir="./storageContext", vector_store=None):
     """Check if storageContext exist if not create one"""
@@ -185,17 +187,25 @@ class EngineManager(QThread):
             # CitationQueryEngine is still being initialized.
             self.index_ready.emit(index, reranker)
 
+            # Create the retriever that use the LLM to reason about hte metadata
+            auto_retriever = VectorIndexAutoRetriever(
+                index,
+                vector_store_info=vector_store_info,
+                similarity_top_k=cfg.similarity_top_k.value,
+            )
+
             ## Step 6: Create CitationQueryEngine ##
             self.step_progress.emit(6, self.TOTAL_STEPS, "Initializing query engine…")
             self.progress.emit("Initializing query engine...")
             query_engine = CitationQueryEngine.from_args(
                 index,
+                retriever=auto_retriever,
                 similarity_top_k=cfg.similarity_top_k.value,
                 node_postprocessors=[reranker],
                 citation_chunk_size=cfg.citation_chunk_size.value,
                 streaming=True,
                 verbose=True,
-                response_mode="compact"
+                response_mode="compact",
             )
 
             self.engine_ready.emit(query_engine)
