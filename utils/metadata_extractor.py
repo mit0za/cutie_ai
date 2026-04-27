@@ -78,6 +78,48 @@ def _parse_filename(filename):
             "title": title.strip()
             
         }
+    
+def _extract_entities(text):
+    # Cap text length
+    doc = nlp(text[:10_000])
+
+    # spaCy people
+    spacy_people = set(
+        ent.text.strip()
+        for ent in doc.ents
+        if ent.label_ == "PERSON" and len(ent.text.strip()) > 2
+    )
+
+    # Domain: titled people
+    titled_people = set(find_titled_people(text, keywords["titles"]))
+
+    # Domain: known SA places
+    domain_places = set(find_known_places(text, keywords["places"]))
+
+    # spaCy places
+    spacy_places = set(
+        ent.text.strip()
+        for ent in doc.ents
+        if ent.label_ in ("GPE", "LOC") and len(ent.text.strip()) > 2
+    )
+
+    domain_orgs = set(find_known_organisations(text, keywords["organisations"]))
+
+    # spaCy orgs
+    spacy_orgs  = set(
+        ent.text.strip()
+        for ent in doc.ents
+        if ent.label_ == "ORG" and len(ent.text.strip()) > 2
+    )
+
+    return {
+        "people": sorted(spacy_people | titled_people),
+        "places": sorted(domain_places | spacy_places),
+        "organisations": sorted(domain_orgs | spacy_orgs),
+        "amounts": find_pound_amounts(text),
+        "years_mentioned": find_years_mentioned(text),
+    }
+
 
 class MetaDataExtractor(BaseExtractor):
     async def aextract(self, nodes):
