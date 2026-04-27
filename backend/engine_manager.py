@@ -3,7 +3,7 @@ import os
 import json
 from datetime import datetime
 from llama_index.llms.llama_cpp import LlamaCPP
-from llama_index.core import Settings, StorageContext
+from llama_index.core import Settings, StorageContext, SimpleDirectoryReader
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from llama_index.vector_stores.chroma import ChromaVectorStore
 from utils.index_manager import load_or_create_index
@@ -13,6 +13,8 @@ from ui.config import cfg
 from llama_index.core.postprocessor import SentenceTransformerRerank
 from utils.auto_retrieval import vector_store_info
 from llama_index.core.retrievers import VectorIndexAutoRetriever
+from llama_index.retrievers.bm25 import BM25Retriever
+from llama_index.core.retrievers import QueryFusionRetriever
 
 def storage_graph(persist_dir="./storageContext", vector_store=None):
     """Check if storageContext exist if not create one"""
@@ -185,22 +187,45 @@ class EngineManager(QThread):
             # This signal fires before the LLM query engine is created, so the
             # Document Search feature becomes usable while the heavier LLM-based
             # CitationQueryEngine is still being initialized.
-            self.index_ready.emit(index, reranker)
+
+            nodes = list(index.docstore.docs.values())
 
             # Create the retriever that use the LLM to reason about hte metadata
             auto_retriever = VectorIndexAutoRetriever(
                 index,
                 vector_store_info=vector_store_info,
                 similarity_top_k=cfg.similarity_top_k.value,
+                verbose=True
             )
+
+            # Add BM25 Retriever
+            retrievers = [auto_retriever]
+            if nodes:
+                bm25_retriever = BM25Retriever.from_defaults(
+                    nodes=nodes,
+                    similarity_top_k=cfg.similarity_top_k.value
+                )
+                retrievers.append(bm25_retriever)
+                self.progress.emit(f"BM25 retriever ready ({len(nodes)} nodes)")
+            else:
+                self.progress.emit("Warning: docstore empty, BM25 skipped")
+
+            retriever = QueryFusionRetriever(
+                retrievers,
+                similarity_top_k=cfg.similarity_top_k.value,
+                num_queries=1,
+                mode="reciprocal_rerank",
+                use_async=True
+            )
+
+            self.index_ready.emit(index, reranker)
 
             ## Step 6: Create CitationQueryEngine ##
             self.step_progress.emit(6, self.TOTAL_STEPS, "Initializing query engine…")
             self.progress.emit("Initializing query engine...")
             query_engine = CitationQueryEngine.from_args(
                 index,
-                retriever=auto_retriever,
-                similarity_top_k=cfg.similarity_top_k.value,
+                retriever=retriever,
                 node_postprocessors=[reranker],
                 citation_chunk_size=cfg.citation_chunk_size.value,
                 streaming=True,
