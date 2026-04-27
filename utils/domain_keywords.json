@@ -1,0 +1,21 @@
+{
+  "titles": [
+    "Mr", "Mrs", "Miss", "Ms", "Dr", "Hon", "Col", "Rev", "Sir",
+    "Captain", "Inspector", "Superintendent", "Commissioner",
+    "Postmaster", "Stationmaster", "Secretary", "Premier", "Governor",
+    "Engineer", "Surveyor", "Constable", "Sergeant", "Major"
+  ],
+  "organisations": [
+    "House of Assembly", "Legislative Council", "Parliament",
+    "Post Office", "Electric Telegraph", "Observatory",
+    "South Australian Register", "Adelaide Advertiser",
+    "Kapunda Herald", "Southern Argus", "Civil Service",
+    "Stock Exchange", "Railway Department", "Telegraphs Department"
+  ],
+  "places": [
+    "Adelaide", "South Australia", "Port Adelaide", "Mount Gambier",
+    "Kapunda", "Gawler", "Pirie Street", "North Terrace",
+    "Parliament House", "Victoria Square", "Port Augusta",
+    "Broken Hill", "Darwin", "Port Darwin"
+  ]
+}
