@@ -132,8 +132,8 @@ class SearchController(QObject):
             )
             return
 
-        # Reset the UI to loading state
-        self.parent.clear_results()
+        # Reset cached results and filter controls before starting a new query.
+        self.parent.prepare_new_search()
         self.parent.progress_ring.setVisible(True)
         self.parent.search_button.setEnabled(False)
         self.parent.status_label.setText("Searching...")
