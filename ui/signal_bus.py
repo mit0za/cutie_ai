@@ -21,5 +21,10 @@ class SignalBus(QObject):
     # Payload: dict with keys like ready, doc_count, node_count, last_index_time.
     indexStatsUpdated = Signal(dict)
 
+    # Index maintenance requests emitted by SettingsInterface and handled by
+    # EngineController so active engine state can be stopped safely first.
+    indexClearRequested = Signal()
+    indexRebuildRequested = Signal()
+
 
 signalBus = SignalBus()

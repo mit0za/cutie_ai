@@ -1,3 +1,6 @@
+import gc
+import os
+import shutil
 from qfluentwidgets import InfoBar, InfoBarPosition
 from PySide6.QtCore import Qt, QTimer
 from backend.engine_manager import EngineManager
@@ -20,6 +23,8 @@ class EngineController:
 
         # Connect to signals
         self._connect_engine_signals(self.engine_thread)
+        signalBus.indexClearRequested.connect(self.on_clear_index_requested)
+        signalBus.indexRebuildRequested.connect(self.on_rebuild_index_requested)
 
         cfg.dataFolders.valueChanged.connect(self.on_data_folder_changed)
 
@@ -157,6 +162,86 @@ class EngineController:
         )
 
         QTimer.singleShot(800, self.restarting_engine)
+
+    def on_clear_index_requested(self):
+        """Clear local index storage after stopping the engine thread."""
+        try:
+            self._stop_engine_for_maintenance()
+            self._reset_engine_state()
+            removed_paths = self._clear_index_storage()
+            signalBus.indexStatsUpdated.emit({
+                "ready": False,
+                "doc_count": 0,
+                "node_count": 0,
+                "last_index_time": None,
+                "source": "cleared",
+            })
+            InfoBar.success(
+                title="Index Cleared",
+                content=f"Removed {len(removed_paths)} local index item(s).",
+                orient=Qt.Horizontal,
+                isClosable=True,
+                position=InfoBarPosition.TOP_RIGHT,
+                duration=5000,
+                parent=self.parent
+            )
+        except Exception as e:
+            InfoBar.error(
+                title="Clear Index Failed",
+                content=str(e),
+                orient=Qt.Horizontal,
+                isClosable=True,
+                position=InfoBarPosition.TOP_RIGHT,
+                duration=8000,
+                parent=self.parent
+            )
+
+    def on_rebuild_index_requested(self):
+        """Clear local index storage and restart the engine to rebuild it."""
+        data_paths = cfg.dataFolders.value or []
+        if not data_paths:
+            InfoBar.warning(
+                title="Data Folder Required",
+                content="Select at least one data folder before rebuilding the index.",
+                orient=Qt.Horizontal,
+                isClosable=True,
+                position=InfoBarPosition.TOP_RIGHT,
+                duration=6000,
+                parent=self.parent
+            )
+            return
+
+        try:
+            self._stop_engine_for_maintenance()
+            self._reset_engine_state()
+            self._clear_index_storage()
+            signalBus.indexStatsUpdated.emit({
+                "ready": False,
+                "doc_count": 0,
+                "node_count": 0,
+                "last_index_time": None,
+                "source": "rebuilding",
+            })
+            InfoBar.info(
+                title="Rebuilding Index",
+                content="Existing index removed. Rebuild is starting from configured data folders.",
+                orient=Qt.Horizontal,
+                isClosable=True,
+                position=InfoBarPosition.TOP_RIGHT,
+                duration=6000,
+                parent=self.parent
+            )
+            self.restarting_engine()
+        except Exception as e:
+            InfoBar.error(
+                title="Rebuild Index Failed",
+                content=str(e),
+                orient=Qt.Horizontal,
+                isClosable=True,
+                position=InfoBarPosition.TOP_RIGHT,
+                duration=8000,
+                parent=self.parent
+            )
     
     def restarting_engine(self):
         # Restart the engine thread safely
@@ -174,3 +259,52 @@ class EngineController:
         self._connect_engine_signals(self.engine_thread)
 
         self.engine_thread.start()
+
+    def _stop_engine_for_maintenance(self):
+        """
+        Stop the current engine thread before deleting index files.
+
+        Deleting ChromaDB files while the engine is still initializing can
+        leave file handles open, so maintenance waits briefly for the thread
+        to stop and asks the user to retry if it is still busy.
+        """
+        if self.engine_thread.isRunning():
+            self.engine_thread.quit()
+            if not self.engine_thread.wait(5000):
+                raise RuntimeError(
+                    "Engine is still initializing. Please wait for startup to finish and try again."
+                )
+
+    def _reset_engine_state(self):
+        """Reset cached engine references so stale index objects are not reused."""
+        self.engine_info = None
+        self.query_engine = None
+        self.index = None
+        self.reranker = None
+        self.parent.push_button.setEnabled(False)
+        # Release ChromaDB and LlamaIndex handles before removing files on Windows.
+        gc.collect()
+
+    def _clear_index_storage(self):
+        """Remove local index directories and status metadata safely."""
+        project_root = os.path.abspath(os.getcwd())
+        targets = [
+            os.path.join(project_root, "chroma_db"),
+            os.path.join(project_root, "storageContext"),
+            os.path.join(project_root, "cache"),
+            os.path.join(project_root, "app", "config", "index_status.json"),
+        ]
+
+        removed_paths = []
+        for target in targets:
+            if os.path.commonpath([project_root, target]) != project_root:
+                raise RuntimeError(f"Refusing to remove path outside project root: {target}")
+
+            if os.path.isdir(target):
+                shutil.rmtree(target)
+                removed_paths.append(target)
+            elif os.path.isfile(target):
+                os.remove(target)
+                removed_paths.append(target)
+
+        return removed_paths
