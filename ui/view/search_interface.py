@@ -29,6 +29,7 @@ from qfluentwidgets import (
     ScrollArea, setTheme, Theme, SearchLineEdit, PrimaryPushButton,
     SubtitleLabel, BodyLabel, CaptionLabel, StrongBodyLabel,
     IndeterminateProgressRing, ProgressBar, CardWidget, FluentIcon,
+    ComboBox, LineEdit, PushButton,
 )
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout
 from PySide6.QtCore import Qt, QUrl
@@ -115,8 +116,9 @@ class ResultCard(CardWidget):
         meta_parts = []
         if "year" in metadata:
             meta_parts.append(f"Year: {metadata['year']}")
-        if "article_title" in metadata:
-            meta_parts.append(f"Article: {metadata['article_title']}")
+        article_title = metadata.get("article_title") or metadata.get("title")
+        if article_title:
+            meta_parts.append(f"Article: {article_title}")
         if meta_parts:
             meta_label = CaptionLabel("  |  ".join(meta_parts))
             layout.addWidget(meta_label)
@@ -201,6 +203,66 @@ class SearchInterface(ScrollArea):
         search_layout.addWidget(self.search_button)
         main_layout.addLayout(search_layout)
 
+        # Local filter/sort controls operate on the last retrieved result set.
+        filter_layout = QVBoxLayout()
+        filter_layout.setSpacing(8)
+        filter_row = QHBoxLayout()
+        filter_row.setSpacing(8)
+        sort_row = QHBoxLayout()
+        sort_row.setSpacing(8)
+
+        self.file_type_combo = ComboBox(self)
+        self.file_type_combo.addItem("All Types")
+        self.file_type_combo.setMinimumWidth(140)
+
+        self.source_filter_input = LineEdit(self)
+        self.source_filter_input.setPlaceholderText("Filter by source name...")
+        self.source_filter_input.setClearButtonEnabled(True)
+
+        self.sort_combo = ComboBox(self)
+        self.sort_combo.addItems([
+            "Relevance (High to Low)",
+            "Relevance (Low to High)",
+            "Title (A-Z)",
+            "Title (Z-A)",
+            "Source (A-Z)",
+            "Source (Z-A)",
+        ])
+        self.sort_combo.setMinimumWidth(230)
+
+        self.clear_filters_button = PushButton("Clear Filters", self)
+        self.clear_filters_button.setMinimumWidth(130)
+
+        filter_control_style = """
+            ComboBox, LineEdit, PushButton {
+                color: #f2f2f2;
+                background-color: #202020;
+                border: 1px solid #555;
+                border-radius: 6px;
+            }
+            ComboBox QLabel, PushButton QLabel {
+                color: #f2f2f2;
+            }
+        """
+        self.file_type_combo.setStyleSheet(filter_control_style)
+        self.source_filter_input.setStyleSheet(filter_control_style)
+        self.sort_combo.setStyleSheet(filter_control_style)
+        self.clear_filters_button.setStyleSheet(filter_control_style)
+
+        filter_row.addWidget(CaptionLabel("Type"))
+        filter_row.addWidget(self.file_type_combo)
+        filter_row.addWidget(CaptionLabel("Source"))
+        filter_row.addWidget(self.source_filter_input, stretch=1)
+
+        sort_row.addWidget(CaptionLabel("Sort"))
+        sort_row.addWidget(self.sort_combo)
+        sort_row.addWidget(self.clear_filters_button)
+        sort_row.addStretch(1)
+
+        filter_layout.addLayout(filter_row)
+        filter_layout.addLayout(sort_row)
+        main_layout.addLayout(filter_layout)
+
         # ── Status label (shows result count, timing, or readiness) ──
         self.status_label = CaptionLabel("")
         main_layout.addWidget(self.status_label)
@@ -225,6 +287,11 @@ class SearchInterface(ScrollArea):
 
         # Push remaining space to the top so result cards stack downward
         main_layout.addStretch(1)
+
+        self._all_results = []
+        self._last_elapsed = 0.0
+        self._updating_filter_options = False
+        self._connect_filter_controls()
 
         # ── Initialize the search controller ──
         self.search_controller = SearchController(self)
@@ -255,25 +322,69 @@ class SearchInterface(ScrollArea):
             results (list[dict]): Structured results from RetrievalWorker.
             elapsed (float): Wall-clock seconds the retrieval took.
         """
-        if not results:
-            self.status_label.setText(f"No results found. ({elapsed:.2f}s)")
+        self._all_results = list(results)
+        self._last_elapsed = elapsed
+        self._update_file_type_options(self._all_results)
+        self.apply_filters_and_sort()
+
+    def apply_filters_and_sort(self, *_):
+        """
+        Apply local file type/source filters and sort cached search results.
+
+        This method does not call the retrieval worker again. It reshapes the
+        most recent result set returned by semantic retrieval, so users can
+        refine results instantly without another vector search.
+        """
+        if self._updating_filter_options:
             return
 
-        self.status_label.setText(
-            f"Found {len(results)} result(s) in {elapsed:.2f}s"
-        )
+        self.clear_results()
+
+        if not self._all_results:
+            self.status_label.setText(f"No results found. ({self._last_elapsed:.2f}s)")
+            return
+
+        filtered_results = [
+            result for result in self._all_results
+            if self._matches_file_type(result) and self._matches_source_filter(result)
+        ]
+        filtered_results = self._sort_results(filtered_results)
+
+        if not filtered_results:
+            self.status_label.setText(
+                f"No results match current filters. "
+                f"({len(self._all_results)} original result(s), {self._last_elapsed:.2f}s)"
+            )
+            return
+
+        if len(filtered_results) == len(self._all_results):
+            self.status_label.setText(
+                f"Found {len(filtered_results)} result(s) in {self._last_elapsed:.2f}s"
+            )
+        else:
+            self.status_label.setText(
+                f"Showing {len(filtered_results)} of {len(self._all_results)} result(s) "
+                f"in {self._last_elapsed:.2f}s"
+            )
 
         # Determine the max score for normalizing the progress bars.
         # All scores are divided by this value so the top result gets 100%.
-        max_score = max(r.get("score", 0) for r in results)
+        max_score = max(r.get("score", 0) for r in filtered_results)
         if max_score <= 0:
             max_score = 1.0
 
-        for rank, result in enumerate(results, start=1):
+        for rank, result in enumerate(filtered_results, start=1):
             card = ResultCard(
                 result, rank=rank, max_score=max_score, parent=self.view
             )
             self.results_layout.addWidget(card)
+
+    def reset_filters(self):
+        """Reset filter controls without clearing cached retrieval results."""
+        self.file_type_combo.setCurrentText("All Types")
+        self.source_filter_input.clear()
+        self.sort_combo.setCurrentIndex(0)
+        self.apply_filters_and_sort()
 
     def clear_results(self):
         """
@@ -285,3 +396,99 @@ class SearchInterface(ScrollArea):
             widget = item.widget()
             if widget:
                 widget.deleteLater()
+
+    def prepare_new_search(self):
+        """Clear cached results and reset filters before a new retrieval."""
+        self._all_results = []
+        self._last_elapsed = 0.0
+        self.reset_filters()
+        self.clear_results()
+
+    def _connect_filter_controls(self):
+        """Connect filter controls to local result re-rendering."""
+        self.file_type_combo.currentTextChanged.connect(self.apply_filters_and_sort)
+        self.source_filter_input.textChanged.connect(self.apply_filters_and_sort)
+        self.sort_combo.currentTextChanged.connect(self.apply_filters_and_sort)
+        self.clear_filters_button.clicked.connect(self.reset_filters)
+
+    def _update_file_type_options(self, results):
+        """Populate the file type combo from the current result set."""
+        current_type = self.file_type_combo.currentText()
+        file_types = sorted({
+            self._get_file_type(result)
+            for result in results
+            if self._get_file_type(result)
+        })
+
+        self._updating_filter_options = True
+        self.file_type_combo.clear()
+        self.file_type_combo.addItem("All Types")
+        self.file_type_combo.addItems(file_types)
+        if current_type in file_types:
+            self.file_type_combo.setCurrentText(current_type)
+        else:
+            self.file_type_combo.setCurrentText("All Types")
+        self._updating_filter_options = False
+
+    def _matches_file_type(self, result):
+        """Return True when the result matches the selected file type."""
+        selected_type = self.file_type_combo.currentText()
+        if selected_type == "All Types":
+            return True
+        return self._get_file_type(result) == selected_type
+
+    def _matches_source_filter(self, result):
+        """Return True when the source/title contains the filter text."""
+        filter_text = self.source_filter_input.text().strip().lower()
+        if not filter_text:
+            return True
+
+        metadata = result.get("metadata", {}) or {}
+        haystack_parts = [
+            result.get("title", ""),
+            os.path.basename(result.get("file_path") or ""),
+            metadata.get("source", ""),
+            metadata.get("file_name", ""),
+            metadata.get("article_title", ""),
+            metadata.get("title", ""),
+        ]
+        return filter_text in " ".join(str(part) for part in haystack_parts).lower()
+
+    def _sort_results(self, results):
+        """Return a sorted copy based on the selected sort option."""
+        sort_text = self.sort_combo.currentText()
+        sorted_results = list(results)
+
+        if sort_text == "Relevance (Low to High)":
+            sorted_results.sort(key=lambda result: result.get("score", 0.0))
+        elif sort_text == "Title (A-Z)":
+            sorted_results.sort(key=self._get_result_title)
+        elif sort_text == "Title (Z-A)":
+            sorted_results.sort(key=self._get_result_title, reverse=True)
+        elif sort_text == "Source (A-Z)":
+            sorted_results.sort(key=self._get_source_name)
+        elif sort_text == "Source (Z-A)":
+            sorted_results.sort(key=self._get_source_name, reverse=True)
+        else:
+            sorted_results.sort(
+                key=lambda result: result.get("score", 0.0),
+                reverse=True,
+            )
+
+        return sorted_results
+
+    def _get_file_type(self, result):
+        """Extract the upper-case file extension used by the type filter."""
+        source = result.get("file_path") or result.get("title") or ""
+        extension = os.path.splitext(source)[1].lstrip(".").upper()
+        return extension or "UNKNOWN"
+
+    def _get_result_title(self, result):
+        """Return a stable lower-case title value for sorting."""
+        return str(result.get("title") or "").lower()
+
+    def _get_source_name(self, result):
+        """Return a stable lower-case source file name for sorting."""
+        file_path = result.get("file_path") or ""
+        source_name = os.path.basename(file_path) if file_path else result.get("title", "")
+        return str(source_name or "").lower()
