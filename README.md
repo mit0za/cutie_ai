@@ -26,6 +26,7 @@ https://huggingface.co/BAAI/bge-reranker-large
 ```
 export PYTORCH_HIP_ALLOC_CONF=expandable_segments:True
 ```
+
 # How to set up LLM
 1. Create models directory<br>
 Create a folder called ```models``` and put the raw model file ```Meta-Llama-3.1-8B-Instruct-Q6_K_L.gguf``` inside it.
@@ -33,3 +34,6 @@ Create a folder called ```models``` and put the raw model file ```Meta-Llama-3.1
 Inside the ```models``` directory, create a folder name ```qwen3-embedding-0.6b``` and place the embedding model files there.
 3. Set up the reranking model<br>
 Inside the ```models``` directory, create a folder named ```bge-reranker-large``` and place the reranking model files there.
+
+# Run this after installing requirements:
+# python -m spacy download en_core_web_sm**NLP**

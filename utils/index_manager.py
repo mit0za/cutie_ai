@@ -1,12 +1,14 @@
 import os
+import torch
 import shutil
 from typing import Union, List
-from llama_index.core import VectorStoreIndex, SimpleDirectoryReader
+from llama_index.core import VectorStoreIndex, SimpleDirectoryReader, Settings
 from llama_index.core.node_parser import SentenceSplitter
 from llama_index.core.ingestion import IngestionPipeline, IngestionCache
 from PySide6.QtCore import QMetaObject, Qt
 from utils.metadata_extractor import MetaDataExtractor
 from llama_index.readers.file import DocxReader, PDFReader
+import math
 
 # TODO[Engine]: Re-enable multiprocessing once GUI-safe process spawning is implemented.
 # Issue: PySide6 event loop + multiprocessing.spawn causes deadlock on Windows.
@@ -93,7 +95,6 @@ def load_or_create_index(vector_store, storage_context, data_path: Union[str, Li
             if file_name not in copied:
                 shutil.copy2(abs_path, dest)
                 copied.add(file_name)
-                log(f"Copied {os.path.basename(abs_path)} -> chroma_db/documents/")
             # Update metadata to point to the portable relative path
             doc.metadata["file_path"] = os.path.join("chroma_db", "documents", file_name)
 
@@ -102,22 +103,59 @@ def load_or_create_index(vector_store, storage_context, data_path: Union[str, Li
         # Ingestion pipeline: split into chunks and extract metadata
         pipeline = IngestionPipeline(
             transformations=[
-                SentenceSplitter(chunk_size=1024, chunk_overlap=256, include_metadata=True),
-                MetaDataExtractor()
-            ]
+                SentenceSplitter(chunk_size=512, chunk_overlap=64, include_metadata=True),
+                MetaDataExtractor(),
+                Settings.embed_model,
+            ],
+            cache=IngestionCache()
         )
 
         log("Running ingestion pipeline (chunking + metadata extraction)…")
-        nodes = pipeline.run(documents=documents, show_progress=True)
-        pipeline.cache.persist("./cache") # save hashes for next indexing
-        log(f"Pipeline produced {len(nodes)} nodes")
 
-        if nodes:
-            log(f"Sample metadata from first node: {nodes[0].metadata.get('excerpt_keywords', []) [:10]}")
+        BATCH_SIZE = 50
+        total_batches = math.ceil(len(documents) / BATCH_SIZE)
+        all_nodes = []
+
+        for i in range(0, len(documents), BATCH_SIZE):
+            batch = documents[i:i + BATCH_SIZE]
+            batch_num = (i // BATCH_SIZE) + 1
+            log(f"Processing batch {batch_num}/{total_batches} ({len(batch)} documents)…")
+
+            batch_nodes = pipeline.run(documents=batch, show_progress=True)
+            all_nodes.extend(batch_nodes)
+
+            pipeline.cache.persist("./cache")
+            torch.cuda.empty_cache()
+            log(f"Batch {batch_num} done - {len(batch_nodes)} nodes produced")
+
+
+        log(f"Pipeline complete — {len(all_nodes)} total nodes")
+
+        CHROMA_BATCH = 5000
+        log(f"Inserting {len(all_nodes)} nodes into ChromaDB…")
+
+        for i in range(0, len(all_nodes), CHROMA_BATCH):
+            chunk = all_nodes[i:i + CHROMA_BATCH]
+            chunk_num = (i // CHROMA_BATCH) + 1
+            total_chunks = math.ceil(len(all_nodes) / CHROMA_BATCH)
+            log(f"ChromaDB insert {chunk_num}/{total_chunks} ({len(chunk)} nodes)…")
+            vector_store.add(chunk)
+
+        log("All nodes inserted into ChromaDB")
+
+        if all_nodes:
+            sample = all_nodes[0].metadata
+            log(f"Sample metadata from first node:")
+            log(f"  year={sample.get('year')}  source={sample.get('source')}")
+            log(f"  title={sample.get('title')}")
+            log(f"  people={sample.get('people', [])[:3]}")
 
         # Build the vector store index from the produced nodes
         log("Building VectorStoreIndex (embedding all nodes)…")
-        index = VectorStoreIndex(nodes, storage_context=storage_context, show_progress=True)
+        index = VectorStoreIndex.from_vector_store(
+            vector_store=vector_store,
+            storage_context=storage_context,
+            show_progress=True)
         storage_context.persist(persist_dir="./storageContext")
         log("Index successfully built")
         return index
@@ -126,7 +164,6 @@ def load_or_create_index(vector_store, storage_context, data_path: Union[str, Li
         index = VectorStoreIndex.from_vector_store(
             vector_store=vector_store,
             storage_context=storage_context,
-            show_progress=True
-        )
+            show_progress=True)
         log(f"BOOM LET'S GO!!!")
         return index

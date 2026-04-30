@@ -3,7 +3,7 @@ import os
 import json
 from datetime import datetime
 from llama_index.llms.llama_cpp import LlamaCPP
-from llama_index.core import Settings, StorageContext
+from llama_index.core import Settings, StorageContext, SimpleDirectoryReader
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from llama_index.vector_stores.chroma import ChromaVectorStore
 from utils.index_manager import load_or_create_index
@@ -11,6 +11,12 @@ from llama_index.core.query_engine import CitationQueryEngine
 from PySide6.QtCore import QThread, Signal
 from ui.config import cfg
 from llama_index.core.postprocessor import SentenceTransformerRerank
+from utils.auto_retrieval import vector_store_info
+from llama_index.core.retrievers import VectorIndexAutoRetriever
+from llama_index.retrievers.bm25 import BM25Retriever
+from llama_index.core.retrievers import QueryFusionRetriever
+import torch
+import gc
 
 def storage_graph(persist_dir="./storageContext", vector_store=None):
     """Check if storageContext exist if not create one"""
@@ -57,35 +63,6 @@ class EngineManager(QThread):
             # Notify listeners that the pipeline is starting
             self.pipeline_started.emit(self.TOTAL_STEPS)
 
-            ## Step 0: Load LLM Model ##
-            try:
-                # Validate model path early so error messages are actionable.
-                self.step_progress.emit(0, self.TOTAL_STEPS, "Loading LLM (Llama 3.1:8B)…")
-                llm_path = cfg.llmModelPath.value
-                if not os.path.isfile(llm_path):
-                    raise FileNotFoundError(f"LLM model file not found: {llm_path}")
-                Settings.llm = LlamaCPP(
-                    model_path=llm_path,
-                    temperature=cfg.temperature.value,
-                    max_new_tokens=cfg.max_new_tokens.value,
-                    context_window=8192,
-                    model_kwargs={
-                        "n_gpu_layers": -1,
-                        "main_gpu": 0,
-                        "n_ctx": 8192,
-                        "n_batch": 256,
-                        "use_mmap": True,
-                        "use_mlock": True,
-                    },
-                    verbose=cfg.verbose.value,
-                )
-                self.llm_ready.emit()
-            except Exception as e:
-                self.error.emit(
-                    f"LLM load failed: {e}. "
-                    f"Check path and GPU configuration."
-                )
-                return
 
             ## Step 1: Load Embedding Model ##
             try:
@@ -98,7 +75,8 @@ class EngineManager(QThread):
                     model_name=embed_path,
                     device="cuda",
                     trust_remote_code=True,
-                    show_progress_bar=True
+                    show_progress_bar=True,
+                    embed_batch_size=4,
                 )
             except Exception as e:
                 self.error.emit(
@@ -177,25 +155,90 @@ class EngineManager(QThread):
             # Emit index stats for UI display (status card + transparency)
             self._emit_index_stats(chroma_collection, index_built=index_built)
 
+            self.index_ready.emit(index, reranker)
+
+            self.progress.emit("Indexing complete. Flushing VRAM for LLM load...")
+            gc.collect()
+            torch.cuda.empty_cache()
+
+            ## Step 0: Load LLM Model ##
+            try:
+                # Validate model path early so error messages are actionable.
+                self.step_progress.emit(0, self.TOTAL_STEPS, "Loading LLM (Llama 3.1:8B)…")
+                llm_path = cfg.llmModelPath.value
+                if not os.path.isfile(llm_path):
+                    raise FileNotFoundError(f"LLM model file not found: {llm_path}")
+                Settings.llm = LlamaCPP(
+                    model_path=llm_path,
+                    temperature=cfg.temperature.value,
+                    max_new_tokens=cfg.max_new_tokens.value,
+                    context_window=8192,
+                    model_kwargs={
+                        "n_gpu_layers": -1,
+                        "main_gpu": 0,
+                        "n_ctx": 8192,
+                        "n_batch": 256,
+                        "use_mmap": True,
+                        "use_mlock": True,
+                    },
+                    verbose=cfg.verbose.value,
+                )
+                self.llm_ready.emit()
+            except Exception as e:
+                self.error.emit(
+                    f"LLM load failed: {e}. "
+                    f"Check path and GPU configuration."
+                )
+                return
+
             ## Step 5: Expose retrieval pipeline ##
             self.step_progress.emit(5, self.TOTAL_STEPS, "Retrieval pipeline ready")
             # Expose the raw index and reranker for the pure retrieval pipeline.
             # This signal fires before the LLM query engine is created, so the
             # Document Search feature becomes usable while the heavier LLM-based
             # CitationQueryEngine is still being initialized.
-            self.index_ready.emit(index, reranker)
+
+            nodes = list(index.docstore.docs.values())
+
+            # Create the retriever that use the LLM to reason about hte metadata
+            auto_retriever = VectorIndexAutoRetriever(
+                index,
+                vector_store_info=vector_store_info,
+                similarity_top_k=cfg.similarity_top_k.value,
+                verbose=True
+            )
+
+            # Add BM25 Retriever
+            retrievers = [auto_retriever]
+            if nodes:
+                bm25_retriever = BM25Retriever.from_defaults(
+                    nodes=nodes,
+                    similarity_top_k=cfg.similarity_top_k.value
+                )
+                retrievers.append(bm25_retriever)
+                self.progress.emit(f"BM25 retriever ready ({len(nodes)} nodes)")
+            else:
+                self.progress.emit("Warning: docstore empty, BM25 skipped")
+
+            retriever = QueryFusionRetriever(
+                retrievers,
+                similarity_top_k=cfg.similarity_top_k.value,
+                num_queries=1,
+                mode="reciprocal_rerank",
+                use_async=True
+            )
 
             ## Step 6: Create CitationQueryEngine ##
             self.step_progress.emit(6, self.TOTAL_STEPS, "Initializing query engine…")
             self.progress.emit("Initializing query engine...")
             query_engine = CitationQueryEngine.from_args(
                 index,
-                similarity_top_k=cfg.similarity_top_k.value,
+                retriever=retriever,
                 node_postprocessors=[reranker],
                 citation_chunk_size=cfg.citation_chunk_size.value,
                 streaming=True,
                 verbose=True,
-                response_mode="compact"
+                response_mode="compact",
             )
 
             self.engine_ready.emit(query_engine)
