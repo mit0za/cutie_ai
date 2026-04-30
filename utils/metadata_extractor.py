@@ -129,8 +129,15 @@ class MetaDataExtractor(BaseExtractor):
             text = node.get_content()
             entity_meta = _extract_entities(text)
 
+            # Convert list to string for ChromaDB compatibility
+            for key in ["people", "places", "organisations", "amounts", "years_mentioned"]:
+                if key in entity_meta and isinstance(entity_meta[key], list):
+                    entity_meta[key] = ", ".join(map(str, entity_meta[key])) if entity_meta[key] else None
+
             # Merge filename metadata + entity metadata
             combined = {**file_meta, **entity_meta}
+
+            node.metadata.update(combined)
 
             # Tell LlamaIndex not to hide any of these from the LLM
             node.excluded_llm_metadata_keys = []
