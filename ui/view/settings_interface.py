@@ -2,8 +2,8 @@ import os
 import zipfile
 import shutil
 from qfluentwidgets import (ScrollArea, ExpandLayout, ScrollArea, setTheme, setThemeColor, isDarkTheme,
-                            SettingCardGroup, SwitchSettingCard, FluentIcon, OptionsSettingCard, CustomColorSettingCard, InfoBar, FolderListSettingCard, RangeSettingCard, PushSettingCard, CardWidget)
-from PySide6.QtWidgets import QWidget, QLabel, QFileDialog, QGridLayout, QSizePolicy
+                            SettingCardGroup, SwitchSettingCard, FluentIcon, OptionsSettingCard, CustomColorSettingCard, InfoBar, FolderListSettingCard, RangeSettingCard, PushSettingCard, CardWidget, MessageBox)
+from PySide6.QtWidgets import QWidget, QLabel, QFileDialog, QGridLayout, QSizePolicy, QDialog
 from PySide6.QtCore import Qt, Signal, QStandardPaths
 from ui.config import cfg, isWin11
 from ui.signal_bus import signalBus
@@ -42,6 +42,31 @@ class SettingsInterface(ScrollArea):
         self.indexStatusCard = CardWidget(self.indexStatusGroup)
         # Build the status card UI once; values update via signalBus.
         self._build_index_status_card()
+
+        # Index maintenance group - validate, rebuild, or clear local index files.
+        self.indexMaintenanceGroup = SettingCardGroup(
+            self.tr("Index Maintenance"), self.scrollWidget)
+        self.validateIndexCard = PushSettingCard(
+            self.tr('Validate'),
+            FluentIcon.ACCEPT,
+            self.tr('Validate Index'),
+            self.tr('Check local index files and copied source documents'),
+            self.indexMaintenanceGroup
+        )
+        self.rebuildIndexCard = PushSettingCard(
+            self.tr('Rebuild'),
+            FluentIcon.SYNC,
+            self.tr('Rebuild Index'),
+            self.tr('Clear current index and rebuild from configured data folders'),
+            self.indexMaintenanceGroup
+        )
+        self.clearIndexCard = PushSettingCard(
+            self.tr('Clear'),
+            FluentIcon.DELETE,
+            self.tr('Clear Index'),
+            self.tr('Remove local index files after confirmation'),
+            self.indexMaintenanceGroup
+        )
 
         # "Export Project" button — compresses the entire ./chroma_db/
         # directory into a single .zip file so it can be shared across machines.
@@ -222,6 +247,11 @@ class SettingsInterface(ScrollArea):
         # add index status group to settings
         self.indexStatusGroup.addSettingCard(self.indexStatusCard)
 
+        # add index maintenance group to settings
+        self.indexMaintenanceGroup.addSettingCard(self.validateIndexCard)
+        self.indexMaintenanceGroup.addSettingCard(self.rebuildIndexCard)
+        self.indexMaintenanceGroup.addSettingCard(self.clearIndexCard)
+
         # add project database group (export / import)
         self.projectGroup.addSettingCard(self.exportProjectCard)
         self.projectGroup.addSettingCard(self.importProjectCard)
@@ -253,6 +283,7 @@ class SettingsInterface(ScrollArea):
         # Add data group and personalGroup to the setting page
         self.expandLayout.addWidget(self.dataGroup)
         self.expandLayout.addWidget(self.indexStatusGroup)
+        self.expandLayout.addWidget(self.indexMaintenanceGroup)
         self.expandLayout.addWidget(self.projectGroup)
         self.expandLayout.addWidget(self.personalGroup)
         self.expandLayout.addWidget(self.modelGroup)
@@ -282,6 +313,9 @@ class SettingsInterface(ScrollArea):
         # Wire up export and import buttons to their handler methods
         self.exportProjectCard.clicked.connect(self.__onExportProject)
         self.importProjectCard.clicked.connect(self.__onImportProject)
+        self.validateIndexCard.clicked.connect(self.__onValidateIndex)
+        self.rebuildIndexCard.clicked.connect(self.__onRebuildIndex)
+        self.clearIndexCard.clicked.connect(self.__onClearIndex)
 
     def __onThemeChanged(self, *_):
         from qfluentwidgets import isDarkTheme
@@ -361,6 +395,120 @@ class SettingsInterface(ScrollArea):
 
         # Re-apply the height after text updates so longer values do not get clipped.
         self._sync_index_status_card_height()
+
+    def __onValidateIndex(self):
+        """Validate local index folders and copied source documents."""
+        try:
+            report = self._build_index_validation_report()
+        except Exception as e:
+            InfoBar.error(
+                self.tr("Index validation failed"),
+                self.tr(f"Could not inspect local index files: {e}"),
+                duration=8000,
+                parent=self
+            )
+            return
+
+        if report["ready"]:
+            InfoBar.success(
+                self.tr("Index validation complete"),
+                self.tr(
+                    f"Index files found. Copied documents: {report['doc_count']}."
+                ),
+                duration=5000,
+                parent=self
+            )
+        else:
+            InfoBar.warning(
+                self.tr("Index validation warning"),
+                self.tr(report["message"]),
+                duration=8000,
+                parent=self
+            )
+            signalBus.indexStatsUpdated.emit({
+                "ready": False,
+                "doc_count": report["doc_count"],
+                "node_count": 0,
+                "last_index_time": None,
+                "source": "validation",
+            })
+
+    def __onRebuildIndex(self):
+        """Request an index rebuild after explicit user confirmation."""
+        data_paths = cfg.dataFolders.value or []
+        if not data_paths:
+            InfoBar.warning(
+                self.tr("Data folder required"),
+                self.tr("Please choose at least one data folder before rebuilding."),
+                duration=6000,
+                parent=self
+            )
+            return
+
+        if not self._confirm_maintenance_action(
+            self.tr("Rebuild Index"),
+            self.tr(
+                "This will remove the current local index and rebuild it from configured data folders. "
+                "The operation may take a while."
+            )
+        ):
+            return
+
+        signalBus.indexRebuildRequested.emit()
+
+    def __onClearIndex(self):
+        """Request index clearing after explicit user confirmation."""
+        if not self._confirm_maintenance_action(
+            self.tr("Clear Index"),
+            self.tr(
+                "This will remove chroma_db/, storageContext/, cache/, and saved index status. "
+                "You will need to rebuild or import an index before searching."
+            )
+        ):
+            return
+
+        signalBus.indexClearRequested.emit()
+
+    def _confirm_maintenance_action(self, title: str, content: str):
+        """Show a blocking confirmation dialog for destructive actions."""
+        box = MessageBox(title, content, self.window())
+        return box.exec() == QDialog.Accepted
+
+    def _build_index_validation_report(self):
+        """Build a lightweight validation report from local index files."""
+        project_root = os.path.abspath(os.getcwd())
+        chroma_dir = os.path.join(project_root, "chroma_db")
+        storage_dir = os.path.join(project_root, "storageContext")
+        docs_dir = os.path.join(chroma_dir, "documents")
+
+        chroma_exists = os.path.isdir(chroma_dir) and bool(os.listdir(chroma_dir))
+        storage_exists = os.path.isdir(storage_dir) and bool(os.listdir(storage_dir))
+        docs_exists = os.path.isdir(docs_dir)
+        doc_count = self._count_files(docs_dir) if docs_exists else 0
+
+        missing = []
+        if not chroma_exists:
+            missing.append("chroma_db/")
+        if not storage_exists:
+            missing.append("storageContext/")
+        if not docs_exists or doc_count == 0:
+            missing.append("chroma_db/documents/")
+
+        return {
+            "ready": not missing,
+            "doc_count": doc_count,
+            "message": (
+                "Missing or empty index component(s): " + ", ".join(missing)
+                if missing else "Index files look complete."
+            ),
+        }
+
+    def _count_files(self, root_dir: str):
+        """Count files recursively under a directory."""
+        total = 0
+        for _, _, filenames in os.walk(root_dir):
+            total += len(filenames)
+        return total
 
     def __onExportProject(self):
         """
