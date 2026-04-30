@@ -1,7 +1,7 @@
 import json
 import os
 
-_KEYWORDS_PATH = os.path.join("data", "domain_keywords.json")
+_KEYWORDS_PATH = os.path.join("utils", "domain_keywords.json")
 
 def load_keywords():
     """Load domain keywords from JSON file."""
